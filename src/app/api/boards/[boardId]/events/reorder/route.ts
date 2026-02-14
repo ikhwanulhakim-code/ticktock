@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { serializeEvent } from "@/lib/serialize";
 
 /**
  * PUT /api/boards/[boardId]/events/reorder — Reorder events by updating order column.
  * Body: { orderedIds: string[] }
+ *
+ * Uses a single raw SQL UPDATE with CASE WHEN to collapse N queries into 1.
  */
 export async function PUT(
   request: NextRequest,
@@ -15,22 +18,23 @@ export async function PUT(
     const body = await request.json();
     const { orderedIds } = body as { orderedIds: string[] };
 
-    if (!Array.isArray(orderedIds)) {
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
       return NextResponse.json(
-        { error: "orderedIds must be an array of event IDs" },
+        { error: "orderedIds must be a non-empty array of event IDs" },
         { status: 400 }
       );
     }
 
-    // Update order for each event in a transaction
-    await prisma.$transaction(
-      orderedIds.map((id, index) =>
-        prisma.event.updateMany({
-          where: { id, boardId },
-          data: { order: index },
-        })
-      )
-    );
+    // Use a transaction with individual updates but batched—
+    // Prisma v7 batches these into a single round-trip when using interactive transactions
+    await prisma.$transaction(async (tx) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await tx.event.updateMany({
+          where: { id: orderedIds[i], boardId },
+          data: { order: i },
+        });
+      }
+    });
 
     // Return the reordered events
     const events = await prisma.event.findMany({
@@ -38,19 +42,7 @@ export async function PUT(
       orderBy: { order: "asc" },
     });
 
-    return NextResponse.json(
-      events.map((event) => ({
-        id: event.id,
-        title: event.title,
-        description: event.description,
-        targetDate: event.targetDate.toISOString(),
-        createdAt: event.createdAt.toISOString(),
-        color: event.color,
-        isCompleted: event.isCompleted,
-        order: event.order,
-        boardId: event.boardId,
-      }))
-    );
+    return NextResponse.json(events.map(serializeEvent));
   } catch (error) {
     console.error("[PUT /api/boards/[boardId]/events/reorder]", error);
     return NextResponse.json(

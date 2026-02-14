@@ -1,33 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { serializeEvent } from "@/lib/serialize";
 import { createEventSchema } from "@/types";
 
-/**
- * Serialize a Prisma Event record to the TickTockEvent shape expected by the client.
- */
-function serializeEvent(event: {
-  id: string;
-  title: string;
-  description: string;
-  targetDate: Date;
-  createdAt: Date;
-  color: string;
-  isCompleted: boolean;
-  order: number;
-  boardId: string;
-}) {
-  return {
-    id: event.id,
-    title: event.title,
-    description: event.description,
-    targetDate: event.targetDate.toISOString(),
-    createdAt: event.createdAt.toISOString(),
-    color: event.color,
-    isCompleted: event.isCompleted,
-    order: event.order,
-    boardId: event.boardId,
-  };
-}
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/boards/[boardId]/events — Fetch all events for a board.
@@ -39,19 +15,18 @@ export async function GET(
   const { boardId } = await params;
 
   try {
-    // Auto-create board if it doesn't exist (magic link pattern)
-    await prisma.board.upsert({
-      where: { id: boardId },
-      update: {},
-      create: { id: boardId },
-    });
-
     const events = await prisma.event.findMany({
       where: { boardId },
       orderBy: { order: "asc" },
     });
 
-    return NextResponse.json(events.map(serializeEvent));
+    const response = NextResponse.json(events.map(serializeEvent));
+    // Prevent caching so mutations (create/update/delete) are immediately reflected
+    response.headers.set(
+      "Cache-Control",
+      "no-cache, no-store, must-revalidate"
+    );
+    return response;
   } catch (error) {
     console.error("[GET /api/boards/[boardId]/events]", error);
     return NextResponse.json(
