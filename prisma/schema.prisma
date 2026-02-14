@@ -26,5 +26,5 @@ model Event {
   boardId     String
   board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
-  @@index([boardId])
+  @@index([boardId, order])
 }
