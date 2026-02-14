@@ -1,48 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, useCallback, useRef, useDeferredValue } from "react";
+import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { Header } from "@/components/shared/header";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { SearchBar } from "@/components/shared/search-bar";
 import { EventList } from "@/components/features/event-list";
-import { EventModal } from "@/components/features/add-event-modal";
-import { FocusTimer } from "@/components/features/focus-timer";
+import { SortToggle, SortHint } from "@/components/features/sort-toggle";
 import { useEvents, useDeleteEvent, useReorderEvents } from "@/hooks/use-events";
 import { useSortPreference } from "@/hooks/use-sort-preference";
+import { TickerProvider } from "@/hooks/use-ticker";
+import { trackBoardVisit } from "@/services/storage";
 import type { TickTockEvent } from "@/types";
 
-const RECENT_BOARDS_KEY = "ticktock_recent_boards";
-const MAX_RECENT_BOARDS = 5;
-
-/** Track this board visit in localStorage for the landing page's "Recent Boards" list. */
-function trackBoardVisit(boardId: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const raw = localStorage.getItem(RECENT_BOARDS_KEY);
-    const boards: { id: string; visitedAt: string }[] = raw ? JSON.parse(raw) : [];
-    const filtered = boards.filter((b) => b.id !== boardId);
-    filtered.unshift({ id: boardId, visitedAt: new Date().toISOString() });
-    localStorage.setItem(
-      RECENT_BOARDS_KEY,
-      JSON.stringify(filtered.slice(0, MAX_RECENT_BOARDS))
-    );
-  } catch {
-    // Ignore localStorage errors
-  }
-}
+// Lazy-load heavy components — only fetched when needed
+const EventModal = dynamic(
+  () => import("@/components/features/add-event-modal").then((m) => ({ default: m.EventModal })),
+  { ssr: false }
+);
+const FocusTimer = dynamic(
+  () => import("@/components/features/focus-timer").then((m) => ({ default: m.FocusTimer })),
+  { ssr: false }
+);
 
 export default function BoardPage() {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
   const boardId = slug;
 
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [modalOpen, setModalOpen] = useState(false);
   const [editEvent, setEditEvent] = useState<TickTockEvent | null>(null);
   const [focusEvent, setFocusEvent] = useState<TickTockEvent | null>(null);
+  const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null);
+  const clearHighlight = useCallback(() => setNewlyCreatedId(null), []);
 
-  const { data: events = [], isLoading } = useEvents(boardId);
+  const { data: events = [], isLoading, error } = useEvents(boardId);
+
+  // If the board slug is not a valid UUID, redirect to a new board
+  useEffect(() => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(boardId)) {
+      // Invalid slug — create a new board and redirect
+      import("@/services/board-service").then(({ boardService }) => {
+        boardService.create().then((board) => {
+          router.replace(`/b/${board.id}`);
+        }).catch(() => {
+          router.replace("/");
+        });
+      });
+    }
+  }, [boardId, router]);
   const deleteEvent = useDeleteEvent(boardId);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const pendingDeleteRef = useRef<string | null>(null);
   const reorderEvents = useReorderEvents(boardId);
   const { sortMode, setSortMode } = useSortPreference(boardId);
 
@@ -52,7 +67,43 @@ export default function BoardPage() {
   }, [boardId]);
 
   function handleDelete(id: string) {
-    deleteEvent.mutate(id);
+    const eventToDelete = events.find((e) => e.id === id);
+    const title = eventToDelete?.title ?? "Countdown";
+
+    toast(`"${title}" deleted`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          // Cancel pending delete if not yet executed
+          pendingDeleteRef.current = null;
+          setDeletingId(null);
+        },
+      },
+      duration: 4000,
+      onAutoClose: () => executePendingDelete(),
+      onDismiss: () => executePendingDelete(),
+    });
+
+    // Store the pending delete — execute after toast closes
+    pendingDeleteRef.current = id;
+    setDeletingId(id);
+
+    function executePendingDelete() {
+      if (pendingDeleteRef.current !== id) {
+        // Undo was clicked — restore UI
+        setDeletingId(null);
+        return;
+      }
+      pendingDeleteRef.current = null;
+
+      deleteEvent.mutate(id, {
+        onSuccess: () => setDeletingId(null),
+        onError: () => {
+          setDeletingId(null);
+          toast.error(`Failed to delete "${title}"`);
+        },
+      });
+    }
   }
 
   function handleEdit(event: TickTockEvent) {
@@ -74,37 +125,52 @@ export default function BoardPage() {
   // Focus Mode — fullscreen overlay
   if (focusEvent) {
     return (
-      <AnimatePresence>
-        <FocusTimer
-          key={focusEvent.id}
-          event={focusEvent}
-          onBack={() => setFocusEvent(null)}
-        />
-      </AnimatePresence>
+      <TickerProvider>
+        <AnimatePresence>
+          <FocusTimer
+            key={focusEvent.id}
+            event={focusEvent}
+            onBack={() => setFocusEvent(null)}
+          />
+        </AnimatePresence>
+      </TickerProvider>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <TickerProvider>
+      <ErrorBoundary>
+      <div className="min-h-screen bg-background">
       <Header onAddClick={() => { setEditEvent(null); setModalOpen(true); }} />
 
       <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
-        {/* Search — only show when there are events */}
+        {/* Toolbar: search + sort toggle — only show when there are events */}
         {events.length > 0 && (
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          <div className="space-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="flex-1 min-w-0">
+                <SearchBar value={searchQuery} onChange={setSearchQuery} />
+              </div>
+              <SortToggle value={sortMode} onChange={setSortMode} />
+            </div>
+            <SortHint sortMode={sortMode} />
+          </div>
         )}
 
         {/* Event list */}
         <EventList
           events={events}
           isLoading={isLoading}
-          searchQuery={searchQuery}
+          searchQuery={deferredSearchQuery}
           sortMode={sortMode}
+          deletingId={deletingId}
+          highlightEventId={newlyCreatedId}
           onDelete={handleDelete}
           onEdit={handleEdit}
           onSelect={setFocusEvent}
           onReorder={handleReorder}
           onSortModeChange={setSortMode}
+          onHighlightComplete={clearHighlight}
         />
       </main>
 
@@ -114,7 +180,10 @@ export default function BoardPage() {
         onOpenChange={handleModalOpenChange}
         editEvent={editEvent}
         boardId={boardId}
+        onEventCreated={setNewlyCreatedId}
       />
     </div>
+    </ErrorBoundary>
+    </TickerProvider>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useMemo } from "react";
 import type { TimerOutput } from "@/types";
+import { useTick } from "@/hooks/use-ticker";
 import {
-  getRemainingMs,
   getProgressPercent,
   msToTimeParts,
 } from "@/lib/date-utils";
@@ -21,50 +21,31 @@ const DEFAULT_TIMER: TimerOutput = {
 /**
  * Custom hook that returns a live countdown towards `targetDate`.
  *
- * - Updates every 1 000 ms via setInterval.
+ * - Derives values from a shared TickerContext (single setInterval for all timers).
  * - Returns a stable default during SSR to avoid hydration mismatches.
- * - Automatically stops ticking when the timer expires.
+ * - Pure derivation — no per-card setInterval.
  */
 export function useTimer(targetDate: string, createdAt: string): TimerOutput {
-  const [timer, setTimer] = useState<TimerOutput>(DEFAULT_TIMER);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const now = useTick();
 
-  useEffect(() => {
-    function tick() {
-      const remainingMs = getRemainingMs(targetDate);
-      const isExpired = remainingMs <= 0;
-      const progressPercent = getProgressPercent(createdAt, targetDate);
-      const { days, hours, minutes, seconds } = msToTimeParts(remainingMs);
+  return useMemo(() => {
+    // SSR guard — useTick returns Date.now() which is 0-ish on server
+    if (typeof window === "undefined") return DEFAULT_TIMER;
 
-      setTimer({
-        days,
-        hours,
-        minutes,
-        seconds,
-        isExpired,
-        progressPercent,
-        totalRemainingMs: remainingMs,
-      });
+    const targetMs = new Date(targetDate).getTime();
+    const remainingMs = Math.max(0, targetMs - now);
+    const isExpired = remainingMs <= 0;
+    const progressPercent = getProgressPercent(createdAt, targetDate, now);
+    const { days, hours, minutes, seconds } = msToTimeParts(remainingMs);
 
-      // Stop interval once expired
-      if (isExpired && intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-
-    // Initial tick on mount
-    tick();
-
-    // Start ticking every second
-    intervalRef.current = setInterval(tick, 1000);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+    return {
+      days,
+      hours,
+      minutes,
+      seconds,
+      isExpired,
+      progressPercent,
+      totalRemainingMs: remainingMs,
     };
-  }, [targetDate, createdAt]);
-
-  return timer;
+  }, [now, targetDate, createdAt]);
 }

@@ -1,32 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { serializeEvent } from "@/lib/serialize";
 import { updateEventSchema } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 /**
- * Serialize a Prisma Event record to the TickTockEvent shape.
+ * GET /api/boards/[boardId]/events/[eventId] — Fetch a single event.
  */
-function serializeEvent(event: {
-  id: string;
-  title: string;
-  description: string;
-  targetDate: Date;
-  createdAt: Date;
-  color: string;
-  isCompleted: boolean;
-  order: number;
-  boardId: string;
-}) {
-  return {
-    id: event.id,
-    title: event.title,
-    description: event.description,
-    targetDate: event.targetDate.toISOString(),
-    createdAt: event.createdAt.toISOString(),
-    color: event.color,
-    isCompleted: event.isCompleted,
-    order: event.order,
-    boardId: event.boardId,
-  };
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ boardId: string; eventId: string }> }
+) {
+  const { boardId, eventId } = await params;
+
+  try {
+    const event = await prisma.event.findFirst({
+      where: { id: eventId, boardId },
+    });
+
+    if (!event) {
+      return NextResponse.json(
+        { error: "Event not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(serializeEvent(event));
+  } catch (error) {
+    console.error("[GET /api/boards/[boardId]/events/[eventId]]", error);
+    return NextResponse.json(
+      { error: "Failed to fetch event" },
+      { status: 500 }
+    );
+  }
 }
 
 /**

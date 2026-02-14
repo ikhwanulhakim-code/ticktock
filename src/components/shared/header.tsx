@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, Hourglass } from "lucide-react";
+import { Plus } from "lucide-react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +15,13 @@ export function Header({ onAddClick }: HeaderProps) {
       <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <Hourglass className="h-5 w-5 text-primary" />
+            <Image
+              src="/app_icon.webp"
+              alt="TickTock logo"
+              width={28}
+              height={28}
+              className="rounded"
+            />
             <h1 className="text-2xl font-bold tracking-tight">
               Tick<span className="text-primary/60">Tock</span>
             </h1>

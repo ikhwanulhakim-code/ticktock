@@ -119,10 +119,30 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
-    @apply bg-background text-foreground;
   }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes event-highlight {
+  0% {
+    box-shadow: 0 0 0 0 oklch(0.65 0.2 250 / 0.6);
+  }
+  40% {
+    box-shadow: 0 0 0 6px oklch(0.65 0.2 250 / 0.25);
+  }
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.65 0.2 250 / 0);
+  }
+}
+
+.event-highlight {
+  animation: event-highlight 1.5s ease-out;
 }

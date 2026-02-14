@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -17,10 +17,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { ArrowUpDown, Clock } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { SortableEventCard } from "./sortable-event-card";
 import { EmptyState } from "./empty-state";
+import { EventListSkeleton } from "./event-list-skeleton";
 import type { TickTockEvent, SortMode } from "@/types";
 
 interface EventListProps {
@@ -28,11 +27,14 @@ interface EventListProps {
   isLoading: boolean;
   searchQuery: string;
   sortMode: SortMode;
+  deletingId?: string | null;
+  highlightEventId?: string | null;
   onDelete: (id: string) => void;
   onEdit: (event: TickTockEvent) => void;
   onSelect: (event: TickTockEvent) => void;
   onReorder: (orderedIds: string[]) => void;
   onSortModeChange: (mode: SortMode) => void;
+  onHighlightComplete?: () => void;
 }
 
 /**
@@ -49,22 +51,51 @@ export function EventList({
   isLoading,
   searchQuery,
   sortMode,
+  deletingId,
+  highlightEventId,
   onDelete,
   onEdit,
   onSelect,
   onReorder,
   onSortModeChange,
+  onHighlightComplete,
 }: EventListProps) {
   // Sensors for dnd-kit
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 150, tolerance: 5 },
     }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 5 },
+    }), 
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Auto-scroll to newly created event and apply highlight animation
+  useEffect(() => {
+    if (!highlightEventId) return;
+    // Wait for the DOM to update after query invalidation
+    const rafId = requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(
+        `[data-event-id="${highlightEventId}"]`
+      );
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Apply highlight after scroll settles
+      const highlightTimer = setTimeout(() => {
+        el.classList.add("event-highlight");
+        const cleanup = () => {
+          el.classList.remove("event-highlight");
+          onHighlightComplete?.();
+        };
+        el.addEventListener("animationend", cleanup, { once: true });
+      }, 500);
+      return () => clearTimeout(highlightTimer);
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [highlightEventId, events, onHighlightComplete]);
 
   // Apply sorting based on mode
   const sortedEvents = useMemo(() => {
@@ -104,16 +135,7 @@ export function EventList({
   }
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-32 animate-pulse rounded-xl border bg-muted/40"
-          />
-        ))}
-      </div>
-    );
+    return <EventListSkeleton />;
   }
 
   if (events.length === 0) {
@@ -133,26 +155,6 @@ export function EventList({
 
   return (
     <div className="space-y-3">
-      {/* Sort mode indicator */}
-      <div className="flex items-center justify-end gap-2">
-        {sortMode === "custom" ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 text-xs text-muted-foreground"
-            onClick={() => onSortModeChange("urgency")}
-          >
-            <Clock className="h-3.5 w-3.5" />
-            Sort by urgency
-          </Button>
-        ) : (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ArrowUpDown className="h-3.5 w-3.5" />
-            Sorted by urgency
-          </span>
-        )}
-      </div>
-
       {/* Sortable list */}
       <DndContext
         sensors={sensors}
@@ -164,11 +166,12 @@ export function EventList({
           items={filtered.map((e) => e.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="grid min-w-0 gap-4 pl-7">
+          <div className="grid min-w-0 gap-4">
             {filtered.map((event) => (
               <SortableEventCard
                 key={event.id}
                 event={event}
+                isDeleting={deletingId === event.id}
                 onDelete={onDelete}
                 onEdit={onEdit}
                 onClick={onSelect}

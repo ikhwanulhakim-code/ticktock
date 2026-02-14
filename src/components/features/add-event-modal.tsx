@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Palette } from "lucide-react";
+import { Palette, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ interface EventModalProps {
   onOpenChange: (open: boolean) => void;
   editEvent?: TickTockEvent | null;
   boardId: string;
+  onEventCreated?: (eventId: string) => void;
 }
 
 type FieldErrors = Record<string, string>;
@@ -34,6 +36,7 @@ export function EventModal({
   onOpenChange,
   editEvent,
   boardId,
+  onEventCreated,
 }: EventModalProps) {
   const isEditing = !!editEvent;
 
@@ -48,6 +51,8 @@ export function EventModal({
     minutes: 0,
     seconds: 0,
   });
+  // String display values — avoids leading-zero bug with type="number" inputs
+  const [durationDisplay, setDurationDisplay] = useState({ hours: "0", minutes: "0", seconds: "0" });
   const [selectedColor, setSelectedColor] = useState<string>(EVENT_COLORS[0]);
   const [errors, setErrors] = useState<FieldErrors>({});
 
@@ -64,6 +69,7 @@ export function EventModal({
       setDateTimeValue(new Date(editEvent.targetDate));
       setSelectedColor(editEvent.color);
       setDuration({ hours: 0, minutes: 0, seconds: 0 });
+      setDurationDisplay({ hours: "0", minutes: "0", seconds: "0" });
       setErrors({});
     }
   }, [editEvent, open]);
@@ -83,6 +89,7 @@ export function EventModal({
     setMode("datetime");
     setDateTimeValue(undefined);
     setDuration({ hours: 0, minutes: 0, seconds: 0 });
+    setDurationDisplay({ hours: "0", minutes: "0", seconds: "0" });
     setSelectedColor(EVENT_COLORS[0]);
     setErrors({});
   }
@@ -105,13 +112,22 @@ export function EventModal({
     return new Date(Date.now() + ms).toISOString();
   }
 
-  function clampDuration(
+  function handleDurationChange(
     field: keyof DurationInput,
     rawValue: string
-  ): number {
-    const parsed = parseInt(rawValue) || 0;
+  ) {
+    // Strip non-digit characters
+    const digits = rawValue.replace(/\D/g, "");
+    // Remove leading zeros, keep at least "0"
+    const clean = digits.replace(/^0+/, "") || "0";
+    const parsed = parseInt(clean, 10) || 0;
     const max = field === "hours" ? 99999 : 59;
-    return Math.min(Math.max(0, parsed), max);
+    const clamped = Math.min(parsed, max);
+    const display = String(clamped);
+
+    setDuration((d) => ({ ...d, [field]: clamped }));
+    setDurationDisplay((d) => ({ ...d, [field]: display }));
+    clearFieldError("targetDate");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -162,12 +178,14 @@ export function EventModal({
           },
         });
       } else {
-        await createEvent.mutateAsync({
+        const created = await createEvent.mutateAsync({
           title: result.data.title,
           description: result.data.description ?? "",
           targetDate: result.data.targetDate,
           color: result.data.color,
         });
+        toast.success("Countdown created!");
+        onEventCreated?.(created.id);
       }
       resetForm();
       onOpenChange(false);
@@ -179,6 +197,26 @@ export function EventModal({
   }
 
   const isPending = createEvent.isPending || updateEvent.isPending;
+
+  function handleFormKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== "Enter") return;
+    const target = e.target as HTMLElement;
+    // Allow Enter in textarea for newlines; Cmd/Ctrl+Enter submits from textarea
+    if (target.tagName === "TEXTAREA") {
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        const form = target.closest("form");
+        form?.requestSubmit();
+      }
+      return;
+    }
+    // Enter from any input field submits the form
+    if (target.tagName === "INPUT" && (target as HTMLInputElement).type !== "color") {
+      e.preventDefault();
+      const form = target.closest("form");
+      form?.requestSubmit();
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -194,7 +232,7 @@ export function EventModal({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="mt-4 space-y-5">
+          <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="mt-4 space-y-5">
             {/* Title */}
             <div className="space-y-2">
               <Label htmlFor="event-title">Event Title</Label>
@@ -308,17 +346,12 @@ export function EventModal({
                         Hours
                       </span>
                       <Input
-                        type="number"
-                        min={0}
-                        max={99999}
-                        value={duration.hours}
-                        onChange={(e) => {
-                          setDuration((d) => ({
-                            ...d,
-                            hours: clampDuration("hours", e.target.value),
-                          }));
-                          clearFieldError("targetDate");
-                        }}
+                        type="text"
+                        inputMode="numeric"
+                        value={durationDisplay.hours}
+                        onChange={(e) => handleDurationChange("hours", e.target.value)}
+                        onFocus={(e) => { if (durationDisplay.hours === "0") { setDurationDisplay((d) => ({ ...d, hours: "" })); } e.target.select(); }}
+                        onBlur={() => { if (!durationDisplay.hours) setDurationDisplay((d) => ({ ...d, hours: "0" })); }}
                         className={cn(
                           errors.targetDate && "border-destructive"
                         )}
@@ -329,17 +362,12 @@ export function EventModal({
                         Minutes
                       </span>
                       <Input
-                        type="number"
-                        min={0}
-                        max={59}
-                        value={duration.minutes}
-                        onChange={(e) => {
-                          setDuration((d) => ({
-                            ...d,
-                            minutes: clampDuration("minutes", e.target.value),
-                          }));
-                          clearFieldError("targetDate");
-                        }}
+                        type="text"
+                        inputMode="numeric"
+                        value={durationDisplay.minutes}
+                        onChange={(e) => handleDurationChange("minutes", e.target.value)}
+                        onFocus={(e) => { if (durationDisplay.minutes === "0") { setDurationDisplay((d) => ({ ...d, minutes: "" })); } e.target.select(); }}
+                        onBlur={() => { if (!durationDisplay.minutes) setDurationDisplay((d) => ({ ...d, minutes: "0" })); }}
                         className={cn(
                           errors.targetDate && "border-destructive"
                         )}
@@ -350,17 +378,12 @@ export function EventModal({
                         Seconds
                       </span>
                       <Input
-                        type="number"
-                        min={0}
-                        max={59}
-                        value={duration.seconds}
-                        onChange={(e) => {
-                          setDuration((d) => ({
-                            ...d,
-                            seconds: clampDuration("seconds", e.target.value),
-                          }));
-                          clearFieldError("targetDate");
-                        }}
+                        type="text"
+                        inputMode="numeric"
+                        value={durationDisplay.seconds}
+                        onChange={(e) => handleDurationChange("seconds", e.target.value)}
+                        onFocus={(e) => { if (durationDisplay.seconds === "0") { setDurationDisplay((d) => ({ ...d, seconds: "" })); } e.target.select(); }}
+                        onBlur={() => { if (!durationDisplay.seconds) setDurationDisplay((d) => ({ ...d, seconds: "0" })); }}
                         className={cn(
                           errors.targetDate && "border-destructive"
                         )}
@@ -455,13 +478,16 @@ export function EventModal({
               className="w-full"
               disabled={isPending}
             >
-              {isPending
-                ? isEditing
-                  ? "Saving…"
-                  : "Creating…"
-                : isEditing
-                  ? "Save Changes"
-                  : "Start Countdown"}
+              {isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {isEditing ? "Saving…" : "Creating…"}
+                </>
+              ) : isEditing ? (
+                "Save Changes"
+              ) : (
+                "Start Countdown"
+              )}
             </Button>
           </form>
       </DialogContent>

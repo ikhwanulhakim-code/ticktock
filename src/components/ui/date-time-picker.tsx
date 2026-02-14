@@ -6,7 +6,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
+import { TimePicker } from "@/components/ui/time-picker";
 import {
   Popover,
   PopoverContent,
@@ -26,9 +26,8 @@ export function DateTimePicker({
 }: DateTimePickerProps) {
   const [open, setOpen] = React.useState(false);
 
-  const timeValue = value
-    ? `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`
-    : "";
+  const timeHours = value ? value.getHours() : undefined;
+  const timeMinutes = value ? value.getMinutes() : undefined;
 
   function handleDateSelect(selectedDate: Date | undefined) {
     if (!selectedDate) {
@@ -45,11 +44,7 @@ export function DateTimePicker({
     onChange(newDate);
   }
 
-  function handleTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const timeStr = e.target.value;
-    if (!timeStr) return;
-
-    const [hours, minutes] = timeStr.split(":").map(Number);
+  function handleTimeChange(hours: number, minutes: number) {
     const newDate = value ? new Date(value) : new Date();
 
     if (!value) {
@@ -89,11 +84,11 @@ export function DateTimePicker({
         </PopoverContent>
       </Popover>
 
-      <Input
-        type="time"
-        value={timeValue}
+      <TimePicker
+        hours={timeHours}
+        minutes={timeMinutes}
         onChange={handleTimeChange}
-        className={cn("w-30", hasError && "border-destructive")}
+        hasError={hasError}
       />
     </div>
   );
