@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useCallback } from "react";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,19 @@ interface FocusTimerProps {
 export function FocusTimer({ event, onBack }: FocusTimerProps) {
   const timer = useTimer(event.targetDate, event.createdAt);
 
+  // Escape key to exit focus mode
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onBack();
+    },
+    [onBack]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -23,10 +37,12 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background"
+      role="dialog"
+      aria-label={`Focus timer for ${event.title}`}
     >
       {/* Back button */}
       <div className="absolute left-4 top-4">
-        <Button variant="ghost" size="sm" onClick={onBack}>
+        <Button variant="ghost" size="sm" onClick={onBack} aria-label="Exit focus mode">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
@@ -41,7 +57,7 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
       {/* Title */}
       <h2 className="mb-2 text-center text-2xl font-bold">{event.title}</h2>
       {event.description && (
-        <p className="mb-2 max-w-md break-words text-center text-sm text-muted-foreground/80">
+        <p className="mb-2 max-w-md wrap-break-word text-center text-sm text-muted-foreground/80">
           {event.description}
         </p>
       )}

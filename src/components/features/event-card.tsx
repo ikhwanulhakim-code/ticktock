@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTimer } from "@/hooks/use-timer";
@@ -10,6 +10,7 @@ import type { TickTockEvent } from "@/types";
 
 interface EventCardProps {
   event: TickTockEvent;
+  isDeleting?: boolean;
   onDelete: (id: string) => void;
   onEdit: (event: TickTockEvent) => void;
   onClick: (event: TickTockEvent) => void;
@@ -17,7 +18,7 @@ interface EventCardProps {
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
-export function EventCard({ event, onDelete, onEdit, onClick }: EventCardProps) {
+export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: EventCardProps) {
   const timer = useTimer(event.targetDate, event.createdAt);
 
   const isUrgent = !timer.isExpired && timer.totalRemainingMs < FIVE_MINUTES_MS;
@@ -35,6 +36,16 @@ export function EventCard({ event, onDelete, onEdit, onClick }: EventCardProps) 
       style={{ borderLeftColor: event.color, borderLeftWidth: 4 }}
       onClick={() => onClick(event)}
     >
+      {/* Deleting overlay */}
+      {isDeleting && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/70 backdrop-blur-[2px]">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Deleting…
+          </div>
+        </div>
+      )}
+
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -62,7 +73,7 @@ export function EventCard({ event, onDelete, onEdit, onClick }: EventCardProps) 
               e.stopPropagation();
               onEdit(event);
             }}
-            className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100"
+            className="rounded-md p-1.5 text-muted-foreground opacity-70 transition-all hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100"
             aria-label={`Edit ${event.title}`}
           >
             <Pencil className="h-4 w-4" />
@@ -72,10 +83,18 @@ export function EventCard({ event, onDelete, onEdit, onClick }: EventCardProps) 
               e.stopPropagation();
               onDelete(event.id);
             }}
-            className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+            disabled={isDeleting}
+            className={cn(
+              "rounded-md p-1.5 text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive",
+              isDeleting ? "opacity-50" : "opacity-70 md:opacity-0 md:group-hover:opacity-100"
+            )}
             aria-label={`Delete ${event.title}`}
           >
-            <Trash2 className="h-4 w-4" />
+            {isDeleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>
