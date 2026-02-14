@@ -42,14 +42,18 @@ export function getRemainingMs(targetDate: string): number {
  * between createdAt and targetDate.
  *
  * Formula: ((now - createdAt) / (targetDate - createdAt)) * 100
+ *
+ * Accepts an explicit `now` timestamp so the result is a pure function of its
+ * inputs — required for React Compiler compatibility and reactive updates via
+ * the shared ticker.
  */
 export function getProgressPercent(
   createdAt: string,
-  targetDate: string
+  targetDate: string,
+  now: number = Date.now()
 ): number {
   const created = new Date(createdAt).getTime();
   const target = new Date(targetDate).getTime();
-  const now = Date.now();
 
   const totalDuration = target - created;
   if (totalDuration <= 0) return 100;

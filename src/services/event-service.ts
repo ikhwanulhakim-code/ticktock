@@ -5,17 +5,23 @@ import type { TickTockEvent, CreateEventInput } from "@/types";
  *
  * All methods are async and call the API route handlers.
  * Each method requires a `boardId` to scope operations to a specific board.
+ * Methods that support cancellation accept an optional `AbortSignal`.
  */
 export const eventService = {
-  async getAll(boardId: string): Promise<TickTockEvent[]> {
-    const res = await fetch(`/api/boards/${boardId}/events`);
+  async getAll(boardId: string, signal?: AbortSignal): Promise<TickTockEvent[]> {
+    const res = await fetch(`/api/boards/${boardId}/events`, {
+      signal,
+      cache: "no-store",
+    });
     if (!res.ok) throw new Error("Failed to fetch events");
     return res.json();
   },
 
-  async getById(boardId: string, id: string): Promise<TickTockEvent | null> {
-    const events = await this.getAll(boardId);
-    return events.find((e) => e.id === id) ?? null;
+  async getById(boardId: string, id: string, signal?: AbortSignal): Promise<TickTockEvent | null> {
+    const res = await fetch(`/api/boards/${boardId}/events/${id}`, { signal });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("Failed to fetch event");
+    return res.json();
   },
 
   async create(boardId: string, input: CreateEventInput): Promise<TickTockEvent> {

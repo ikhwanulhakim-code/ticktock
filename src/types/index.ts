@@ -83,7 +83,11 @@ export const updateEventSchema = z.object({
     .default(""),
   targetDate: z
     .string()
-    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format"),
+    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format")
+    .refine(
+      (val) => new Date(val).getTime() > Date.now(),
+      "Target date must be in the future"
+    ),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),

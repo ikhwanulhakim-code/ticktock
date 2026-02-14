@@ -5,6 +5,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { eventService } from "@/services/event-service";
 import type { CreateEventInput, TickTockEvent } from "@/types";
 
@@ -16,20 +17,55 @@ const eventsKey = (boardId: string) => ["events", boardId] as const;
 export function useEvents(boardId: string) {
   return useQuery({
     queryKey: eventsKey(boardId),
-    queryFn: () => eventService.getAll(boardId),
+    queryFn: ({ signal }) => eventService.getAll(boardId, signal),
     enabled: !!boardId,
   });
 }
 
 /**
- * Create a new event on a board and invalidate the list cache.
+ * Create a new event on a board.
+ * Uses optimistic updates so the countdown appears immediately
+ * without waiting for the API round-trip (prevents time drift).
  */
 export function useCreateEvent(boardId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (input: CreateEventInput) => eventService.create(boardId, input),
-    onSuccess: () => {
+
+    // Optimistically add the event BEFORE the API call
+    onMutate: async (input: CreateEventInput) => {
+      await queryClient.cancelQueries({ queryKey: eventsKey(boardId) });
+      const previous = queryClient.getQueryData<TickTockEvent[]>(eventsKey(boardId));
+
+      const optimisticEvent: TickTockEvent = {
+        id: crypto.randomUUID(),
+        title: input.title,
+        description: input.description ?? "",
+        targetDate: input.targetDate,
+        color: input.color,
+        createdAt: new Date().toISOString(),
+        isCompleted: false,
+        order: (previous?.length ?? 0),
+        boardId,
+      };
+
+      queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
+        old ? [...old, optimisticEvent] : [optimisticEvent]
+      );
+
+      return { previous };
+    },
+
+    // Rollback on error
+    onError: (_err, _input, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(eventsKey(boardId), context.previous);
+      }
+    },
+
+    // Sync with server response
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
     },
   });
@@ -63,7 +99,12 @@ export function useDeleteEvent(boardId: string) {
 
   return useMutation({
     mutationFn: (id: string) => eventService.delete(boardId, id),
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
+      // Optimistically remove the event from cache so the card disappears immediately
+      queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
+        old ? old.filter((e) => e.id !== deletedId) : []
+      );
+      // Also invalidate to ensure cache stays in sync with the server
       queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
     },
   });
@@ -71,16 +112,46 @@ export function useDeleteEvent(boardId: string) {
 
 /**
  * Reorder events by providing the new ordered list of IDs.
- * Persists the order to the database and updates the cache.
+ * Uses optimistic updates so the UI reflects the new order immediately
+ * without waiting for the API round-trip (prevents snap-back animation).
  */
 export function useReorderEvents(boardId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (orderedIds: string[]) => eventService.reorder(boardId, orderedIds),
-    onSuccess: (reordered) => {
+
+    // Optimistically reorder the cache BEFORE the API call
+    onMutate: async (orderedIds: string[]) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: eventsKey(boardId) });
+
+      // Snapshot the previous value for rollback
+      const previous = queryClient.getQueryData<TickTockEvent[]>(eventsKey(boardId));
+
       // Optimistically update the cache with the new order
-      queryClient.setQueryData(eventsKey(boardId), reordered);
+      if (previous) {
+        const orderMap = new Map(orderedIds.map((id, idx) => [id, idx]));
+        const optimistic = [...previous].sort(
+          (a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0)
+        );
+        queryClient.setQueryData(eventsKey(boardId), optimistic);
+      }
+
+      return { previous };
+    },
+
+    // Rollback on error
+    onError: (_err, _orderedIds, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(eventsKey(boardId), context.previous);
+      }
+      toast.error("Failed to reorder events");
+    },
+
+    // Sync with server response
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
     },
   });
 }
