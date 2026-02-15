@@ -88,8 +88,9 @@ export function TimePicker({ hours, minutes, onChange, hasError }: TimePickerPro
               <div
                 ref={hourRef}
                 className="h-50 px-1 py-1"
-                style={{ overflowY: "auto", overscrollBehavior: "contain" }}
+                style={{ overflowY: "auto", overscrollBehavior: "contain", touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
                 onWheel={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
               >
                 {HOURS.map((h) => (
                   <button
@@ -120,8 +121,9 @@ export function TimePicker({ hours, minutes, onChange, hasError }: TimePickerPro
               <div
                 ref={minuteRef}
                 className="h-50 px-1 py-1"
-                style={{ overflowY: "auto", overscrollBehavior: "contain" }}
+                style={{ overflowY: "auto", overscrollBehavior: "contain", touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
                 onWheel={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
               >
                 {MINUTES.map((m) => (
                   <button
