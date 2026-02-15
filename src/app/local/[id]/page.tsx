@@ -18,13 +18,19 @@ import { useSortPreference } from "@/hooks/use-sort-preference";
 import { TickerProvider } from "@/hooks/use-ticker";
 import { LocalBoardProvider } from "@/hooks/use-local-board-context";
 import { trackBoardVisit } from "@/services/storage";
-import { getLocalBoard, getSharedIdFromLocal } from "@/services/local-storage-service";
+import {
+  getLocalBoard,
+  getSharedIdFromLocal,
+} from "@/services/local-storage-service";
 import type { TickTockEvent } from "@/types";
 
 // Lazy-load heavy components
 const EventModal = dynamic(
-  () => import("@/components/features/add-event-modal").then((m) => ({ default: m.EventModal })),
-  { ssr: false }
+  () =>
+    import("@/components/features/add-event-modal").then((m) => ({
+      default: m.EventModal,
+    })),
+  { ssr: false },
 );
 
 export default function LocalBoardPage() {
@@ -55,7 +61,7 @@ export default function LocalBoardPage() {
       router.replace(`/b/${sharedId}`);
       return;
     }
-    
+
     // Check if board exists
     const board = getLocalBoard(boardId);
     if (!board) {
@@ -140,9 +146,7 @@ export default function LocalBoardPage() {
   }
 
   function handleFocusEvent(event: TickTockEvent) {
-    // For local boards, we don't have focus mode yet
-    // Could implement later or redirect to shared board first
-    toast.info("Share your board to use focus mode");
+    router.push(`/local/${boardId}/focus/${event.id}`);
   }
 
   return (
@@ -150,8 +154,11 @@ export default function LocalBoardPage() {
       <TickerProvider>
         <ErrorBoundary>
           <div className="min-h-screen bg-background">
-            <Header 
-              onAddClick={() => { setEditEvent(null); setModalOpen(true); }}
+            <Header
+              onAddClick={() => {
+                setEditEvent(null);
+                setModalOpen(true);
+              }}
               boardId={boardId}
               isLocal={true}
             />
@@ -162,7 +169,10 @@ export default function LocalBoardPage() {
                 <div className="space-y-2">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                     <div className="flex-1 min-w-0">
-                      <SearchBar value={searchQuery} onChange={setSearchQuery} />
+                      <SearchBar
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                      />
                     </div>
                     <SortToggle value={sortMode} onChange={setSortMode} />
                   </div>
