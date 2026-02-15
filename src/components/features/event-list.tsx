@@ -27,7 +27,7 @@ interface EventListProps {
   isLoading: boolean;
   searchQuery: string;
   sortMode: SortMode;
-  deletingId?: string | null;
+  deletingIds?: Set<string>;
   highlightEventId?: string | null;
   onDelete: (id: string) => void;
   onEdit: (event: TickTockEvent) => void;
@@ -51,7 +51,7 @@ export function EventList({
   isLoading,
   searchQuery,
   sortMode,
-  deletingId,
+  deletingIds,
   highlightEventId,
   onDelete,
   onEdit,
@@ -171,7 +171,7 @@ export function EventList({
               <SortableEventCard
                 key={event.id}
                 event={event}
-                isDeleting={deletingId === event.id}
+                isDeleting={deletingIds?.has(event.id)}
                 onDelete={onDelete}
                 onEdit={onEdit}
                 onClick={onSelect}

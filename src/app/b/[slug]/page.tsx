@@ -56,8 +56,8 @@ export default function BoardPage() {
     }
   }, [boardId, router]);
   const deleteEvent = useDeleteEvent(boardId);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const pendingDeleteRef = useRef<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
   const reorderEvents = useReorderEvents(boardId);
   const { sortMode, setSortMode } = useSortPreference(boardId);
 
@@ -74,9 +74,13 @@ export default function BoardPage() {
       action: {
         label: "Undo",
         onClick: () => {
-          // Cancel pending delete if not yet executed
-          pendingDeleteRef.current = null;
-          setDeletingId(null);
+          // Cancel this pending delete
+          pendingDeletesRef.current.delete(id);
+          setDeletingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
         },
       },
       duration: 4000,
@@ -84,22 +88,31 @@ export default function BoardPage() {
       onDismiss: () => executePendingDelete(),
     });
 
-    // Store the pending delete — execute after toast closes
-    pendingDeleteRef.current = id;
-    setDeletingId(id);
+    // Mark this delete as pending
+    pendingDeletesRef.current.add(id);
+    setDeletingIds((prev) => new Set(prev).add(id));
 
     function executePendingDelete() {
-      if (pendingDeleteRef.current !== id) {
-        // Undo was clicked — restore UI
-        setDeletingId(null);
+      if (!pendingDeletesRef.current.has(id)) {
+        // Undo was clicked — already restored
         return;
       }
-      pendingDeleteRef.current = null;
+      pendingDeletesRef.current.delete(id);
 
       deleteEvent.mutate(id, {
-        onSuccess: () => setDeletingId(null),
+        onSuccess: () => {
+          setDeletingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        },
         onError: () => {
-          setDeletingId(null);
+          setDeletingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
           toast.error(`Failed to delete "${title}"`);
         },
       });
@@ -163,7 +176,7 @@ export default function BoardPage() {
           isLoading={isLoading}
           searchQuery={deferredSearchQuery}
           sortMode={sortMode}
-          deletingId={deletingId}
+          deletingIds={deletingIds}
           highlightEventId={newlyCreatedId}
           onDelete={handleDelete}
           onEdit={handleEdit}
