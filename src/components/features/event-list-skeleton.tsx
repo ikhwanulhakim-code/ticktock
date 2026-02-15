@@ -59,7 +59,7 @@ export function EventListSkeleton() {
       </div>
 
       {/* Card skeletons */}
-      <div className="grid min-w-0 gap-4 pl-7">
+      <div className="grid min-w-0 gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="relative min-w-0">
             {/* Drag handle placeholder */}
