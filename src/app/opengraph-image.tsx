@@ -1,20 +1,18 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const alt = "TickTock — Free Online Countdown Timer & Deadline Tracker";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const EVENT_COLORS = ["#6366F1", "#EC4899", "#F59E0B", "#10B981", "#3B82F6"];
+export default async function OGImage() {
+  const iconBuffer = await readFile(
+    join(process.cwd(), "public", "app_icon.png"),
+  );
+  const iconBase64 = `data:image/png;base64,${iconBuffer.toString("base64")}`;
 
-const DIGIT_PAIRS = [
-  { value: "07", label: "days" },
-  { value: "12", label: "hours" },
-  { value: "34", label: "mins" },
-  { value: "56", label: "secs" },
-];
-
-export default function OGImage() {
   return new ImageResponse(
     (
       <div
@@ -22,166 +20,129 @@ export default function OGImage() {
           width: "100%",
           height: "100%",
           display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background:
-            "linear-gradient(145deg, #0a0a0a 0%, #111127 40%, #16213e 100%)",
-          fontFamily: "system-ui, sans-serif",
-          padding: "48px 60px",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
-        {/* ── Brand row ── */}
+        {/* ── Background Layer ── */}
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            marginBottom: "40px",
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            background: "linear-gradient(to bottom right, #0f172a 0%, #1e293b 100%)",
           }}
-        >
-          <img
-            src="https://tryticktock.vercel.app/app_icon.png"
-            alt="TickTock"
-            width={56}
-            height={56}
-            style={{
-              borderRadius: "14px",
-              boxShadow: "0 8px 30px rgba(99, 102, 241, 0.35)",
-            }}
-          />
-          <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
-            <span
-              style={{
-                fontSize: "48px",
-                fontWeight: 800,
-                color: "#ffffff",
-                letterSpacing: "-2px",
-              }}
-            >
-              Tick
-            </span>
-            <span
-              style={{
-                fontSize: "48px",
-                fontWeight: 800,
-                color: "rgba(255,255,255,0.45)",
-                letterSpacing: "-2px",
-              }}
-            >
-              Tock
-            </span>
-          </div>
-        </div>
+        />
 
-        {/* ── Countdown hero ── */}
+        {/* ── Grid Pattern Overlay ── */}
         <div
           style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            backgroundImage:
+              "linear-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(99, 102, 241, 0.1) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+            opacity: 0.3,
+          }}
+        />
+
+        {/* ── Accent Shapes ── */}
+        <div
+          style={{
+            position: "absolute",
+            width: "300px",
+            height: "300px",
+            borderRadius: "50%",
+            background: "rgba(99, 102, 241, 0.15)",
+            top: "-100px",
+            right: "100px",
+            filter: "blur(60px)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            width: "250px",
+            height: "250px",
+            borderRadius: "50%",
+            background: "rgba(236, 72, 153, 0.1)",
+            bottom: "-80px",
+            left: "80px",
+            filter: "blur(50px)",
+          }}
+        />
+
+        {/* ── Content Layer ── */}
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: "12px",
-            marginBottom: "8px",
-            borderRadius: "24px",
-            padding: "16px 48px",
-            background: "rgba(255,255,255,0.04)",
-            boxShadow: "0 0 100px rgba(99, 102, 241, 0.12)",
+            fontFamily: "system-ui, sans-serif",
+            position: "relative",
+            zIndex: 10,
           }}
         >
-          {DIGIT_PAIRS.map((pair, i) => (
-            <div
-              key={pair.label}
-              style={{ display: "flex", alignItems: "center", gap: "12px" }}
-            >
-              {/* Digit pair */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "112px",
-                    fontWeight: 700,
-                    color: "#ffffff",
-                    fontFamily: '"Courier New", Courier, monospace',
-                    letterSpacing: "4px",
-                    lineHeight: 1,
-                  }}
-                >
-                  {pair.value}
-                </span>
-                <span
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: 600,
-                    color: "rgba(255,255,255,0.35)",
-                    textTransform: "uppercase" as const,
-                    letterSpacing: "3px",
-                  }}
-                >
-                  {pair.label}
-                </span>
-              </div>
-
-              {/* Colon separator (skip after last pair) */}
-              {i < DIGIT_PAIRS.length - 1 && (
-                <span
-                  style={{
-                    fontSize: "80px",
-                    fontWeight: 300,
-                    color: "rgba(255,255,255,0.2)",
-                    fontFamily: '"Courier New", Courier, monospace',
-                    lineHeight: 1,
-                    marginBottom: "24px",
-                  }}
-                >
-                  :
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* ── Color spectrum bar ── */}
-        <div
+        {/* ── App Icon ── */}
+        <img
+          src={iconBase64}
+          alt="TickTock"
+          width={180}
+          height={180}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            marginTop: "36px",
-            marginBottom: "28px",
+            borderRadius: "36px",
+            boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+            marginBottom: "40px",
           }}
-        >
-          {EVENT_COLORS.map((color) => (
-            <div
-              key={color}
-              style={{
-                width: "160px",
-                height: "6px",
-                borderRadius: "3px",
-                background: color,
-                opacity: 0.85,
-              }}
-            />
-          ))}
+        />
+
+        {/* ── Brand Name ── */}
+        <div style={{ display: "flex", alignItems: "baseline" }}>
+          <span
+            style={{
+              fontSize: "120px",
+              fontWeight: 800,
+              color: "#ffffff",
+              letterSpacing: "-4px",
+              lineHeight: 1,
+              textShadow: "0 4px 20px rgba(0, 0, 0, 0.2)",
+            }}
+          >
+            Tick
+          </span>
+          <span
+            style={{
+              fontSize: "120px",
+              fontWeight: 800,
+              color: "rgba(255, 255, 255, 0.7)",
+              letterSpacing: "-4px",
+              lineHeight: 1,
+              textShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+            }}
+          >
+            Tock
+          </span>
         </div>
 
         {/* ── Tagline ── */}
         <div
           style={{
-            fontSize: "26px",
+            fontSize: "44px",
             fontWeight: 500,
-            color: "rgba(255,255,255,0.5)",
-            letterSpacing: "0.5px",
+            color: "rgba(255, 255, 255, 0.85)",
+            letterSpacing: "2px",
+            marginTop: "24px",
+            textShadow: "0 2px 10px rgba(0, 0, 0, 0.15)",
           }}
         >
-          Every second counts.
+          Free Countdown Timer
         </div>
       </div>
+    </div>
     ),
     { ...size },
   );
