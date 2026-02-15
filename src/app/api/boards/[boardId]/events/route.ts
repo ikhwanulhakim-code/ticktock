@@ -15,6 +15,12 @@ export async function GET(
   const { boardId } = await params;
 
   try {
+    // Fetch board with updatedAt for sync header
+    const board = await prisma.board.findUnique({
+      where: { id: boardId },
+      select: { updatedAt: true },
+    });
+
     const events = await prisma.event.findMany({
       where: { boardId },
       orderBy: { order: "asc" },
@@ -26,6 +32,13 @@ export async function GET(
       "Cache-Control",
       "no-cache, no-store, must-revalidate"
     );
+    // Add last modified timestamp for sync
+    if (board) {
+      response.headers.set(
+        "X-Last-Modified",
+        board.updatedAt.getTime().toString()
+      );
+    }
     return response;
   } catch (error) {
     console.error("[GET /api/boards/[boardId]/events]", error);
@@ -60,12 +73,25 @@ export async function POST(
       return NextResponse.json({ errors: fieldErrors }, { status: 400 });
     }
 
-    // Auto-create board if it doesn't exist
-    await prisma.board.upsert({
+    // Verify board exists and is shared
+    const board = await prisma.board.findUnique({
       where: { id: boardId },
-      update: {},
-      create: { id: boardId },
+      select: { id: true, isShared: true },
     });
+
+    if (!board) {
+      return NextResponse.json(
+        { error: "Board not found" },
+        { status: 404 }
+      );
+    }
+
+    if (!board.isShared) {
+      return NextResponse.json(
+        { error: "Board is not shared. Share your board first." },
+        { status: 403 }
+      );
+    }
 
     // Determine next order value
     const maxOrder = await prisma.event.aggregate({

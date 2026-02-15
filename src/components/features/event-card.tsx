@@ -4,7 +4,7 @@ import { Pencil, Trash2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTimer } from "@/hooks/use-timer";
-import { pad } from "@/lib/date-utils";
+import { pad, formatEventFallbackTitle } from "@/lib/date-utils";
 import { Progress } from "@/components/ui/progress";
 import type { TickTockEvent } from "@/types";
 
@@ -50,21 +50,13 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold leading-tight">
-            {event.title}
+            {event.title.trim() || formatEventFallbackTitle(new Date(event.targetDate))}
           </h3>
           {event.description && (
             <p className="mt-0.5 truncate text-xs text-muted-foreground/80">
               {event.description}
             </p>
           )}
-          <span
-            className={cn(
-              "mt-1 inline-block text-xs font-medium",
-              timer.isExpired ? "text-red-500" : "text-muted-foreground"
-            )}
-          >
-            {timer.isExpired ? "Expired" : "Counting down…"}
-          </span>
         </div>
 
         <div className="flex items-center gap-1">
@@ -74,7 +66,7 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
               onEdit(event);
             }}
             className="rounded-md p-1.5 text-muted-foreground opacity-70 transition-all hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100"
-            aria-label={`Edit ${event.title}`}
+            aria-label={`Edit ${event.title.trim() || 'event'}`}
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -88,7 +80,7 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
               "rounded-md p-1.5 text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive",
               isDeleting ? "opacity-50" : "opacity-70 md:opacity-0 md:group-hover:opacity-100"
             )}
-            aria-label={`Delete ${event.title}`}
+            aria-label={`Delete ${event.title.trim() || 'event'}`}
           >
             {isDeleting ? (
               <Loader2 className="h-4 w-4 animate-spin" />

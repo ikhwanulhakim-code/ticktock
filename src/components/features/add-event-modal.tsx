@@ -17,9 +17,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { useCreateEvent, useUpdateEvent } from "@/hooks/use-events";
+import {
+  useCreateLocalEvent,
+  useUpdateLocalEvent,
+} from "@/hooks/use-local-events";
 import { createEventSchema, updateEventSchema, EVENT_COLORS } from "@/types";
 import type { InputMode, DurationInput, TickTockEvent } from "@/types";
 import { cn } from "@/lib/utils";
+import { getCustomColors, addCustomColor } from "@/services/storage";
 
 interface EventModalProps {
   open: boolean;
@@ -27,6 +32,7 @@ interface EventModalProps {
   editEvent?: TickTockEvent | null;
   boardId: string;
   onEventCreated?: (eventId: string) => void;
+  isLocal?: boolean;
 }
 
 type FieldErrors = Record<string, string>;
@@ -37,6 +43,7 @@ export function EventModal({
   editEvent,
   boardId,
   onEventCreated,
+  isLocal = false,
 }: EventModalProps) {
   const isEditing = !!editEvent;
 
@@ -54,11 +61,21 @@ export function EventModal({
   // String display values — avoids leading-zero bug with type="number" inputs
   const [durationDisplay, setDurationDisplay] = useState({ hours: "0", minutes: "0", seconds: "0" });
   const [selectedColor, setSelectedColor] = useState<string>(EVENT_COLORS[0]);
+  const [customColors, setCustomColors] = useState<string[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
 
   const colorInputRef = useRef<HTMLInputElement>(null);
-  const createEvent = useCreateEvent(boardId);
-  const updateEvent = useUpdateEvent(boardId);
+  
+  // Use separate hooks for local vs API
+  const createEventAPI = useCreateEvent(boardId);
+  const updateEventAPI = useUpdateEvent(boardId);
+  const createEventLocal = useCreateLocalEvent(boardId);
+  const updateEventLocal = useUpdateLocalEvent(boardId);
+
+  // Load custom colors on mount
+  useEffect(() => {
+    setCustomColors(getCustomColors());
+  }, []);
 
   // Populate form when editing
   useEffect(() => {
@@ -71,6 +88,11 @@ export function EventModal({
       setDuration({ hours: 0, minutes: 0, seconds: 0 });
       setDurationDisplay({ hours: "0", minutes: "0", seconds: "0" });
       setErrors({});
+    } else if (!editEvent && open) {
+      // Set defaults for create mode: +1 minute from now
+      setDateTimeValue(new Date(Date.now() + 60000));
+      setDuration({ hours: 0, minutes: 1, seconds: 0 });
+      setDurationDisplay({ hours: "0", minutes: "1", seconds: "0" });
     }
   }, [editEvent, open]);
 
@@ -87,9 +109,9 @@ export function EventModal({
     setTitle("");
     setDescription("");
     setMode("datetime");
-    setDateTimeValue(undefined);
-    setDuration({ hours: 0, minutes: 0, seconds: 0 });
-    setDurationDisplay({ hours: "0", minutes: "0", seconds: "0" });
+    setDateTimeValue(new Date(Date.now() + 60000));
+    setDuration({ hours: 0, minutes: 1, seconds: 0 });
+    setDurationDisplay({ hours: "0", minutes: "1", seconds: "0" });
     setSelectedColor(EVENT_COLORS[0]);
     setErrors({});
   }
@@ -168,25 +190,51 @@ export function EventModal({
 
     try {
       if (isEditing) {
-        await updateEvent.mutateAsync({
-          id: editEvent.id,
-          data: {
-            title: result.data.title,
-            description: result.data.description ?? "",
-            targetDate: result.data.targetDate,
-            color: result.data.color,
-          },
-        });
+        if (isLocal) {
+          await updateEventLocal.mutateAsync({
+            eventId: editEvent.id,
+            updates: {
+              title: result.data.title,
+              description: result.data.description ?? "",
+              targetDate: result.data.targetDate,
+              color: result.data.color,
+            },
+          });
+        } else {
+          await updateEventAPI.mutateAsync({
+            id: editEvent.id,
+            data: {
+              title: result.data.title,
+              description: result.data.description ?? "",
+              targetDate: result.data.targetDate,
+              color: result.data.color,
+            },
+          });
+        }
       } else {
-        const created = await createEvent.mutateAsync({
-          title: result.data.title,
-          description: result.data.description ?? "",
-          targetDate: result.data.targetDate,
-          color: result.data.color,
-        });
+        const created = isLocal 
+          ? await createEventLocal.mutateAsync({
+              title: result.data.title,
+              description: result.data.description ?? "",
+              targetDate: result.data.targetDate,
+              color: result.data.color,
+            })
+          : await createEventAPI.mutateAsync({
+              title: result.data.title,
+              description: result.data.description ?? "",
+              targetDate: result.data.targetDate,
+              color: result.data.color,
+            });
         toast.success("Countdown created!");
         onEventCreated?.(created.id);
       }
+      
+      // Save custom color to localStorage only after successful save
+      if (!EVENT_COLORS.includes(result.data.color as (typeof EVENT_COLORS)[number])) {
+        addCustomColor(result.data.color);
+        setCustomColors(getCustomColors());
+      }
+      
       resetForm();
       onOpenChange(false);
     } catch {
@@ -196,7 +244,9 @@ export function EventModal({
     }
   }
 
-  const isPending = createEvent.isPending || updateEvent.isPending;
+  const isPending = isLocal 
+    ? (createEventLocal.isPending || updateEventLocal.isPending)
+    : (createEventAPI.isPending || updateEventAPI.isPending);
 
   function handleFormKeyDown(e: React.KeyboardEvent) {
     if (e.key !== "Enter") return;
@@ -235,7 +285,12 @@ export function EventModal({
           <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="mt-4 space-y-5">
             {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="event-title">Event Title</Label>
+              <Label htmlFor="event-title">
+                Title{" "}
+                <span className="text-muted-foreground font-normal">
+                  (optional)
+                </span>
+              </Label>
               <Input
                 id="event-title"
                 placeholder="e.g., Project deadline"
@@ -402,7 +457,7 @@ export function EventModal({
             {/* Color Palette */}
             <div className="space-y-2">
               <Label>Color</Label>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 {EVENT_COLORS.map((color) => (
                   <button
                     key={color}
@@ -422,18 +477,25 @@ export function EventModal({
                   />
                 ))}
 
-                {/* Custom color indicator — show when a non-preset color is selected */}
-                {!EVENT_COLORS.includes(
-                  selectedColor as (typeof EVENT_COLORS)[number]
-                ) && (
+                {/* Custom colors */}
+                {customColors.map((color) => (
                   <button
+                    key={color}
                     type="button"
-                    onClick={() => colorInputRef.current?.click()}
-                    className="h-8 w-8 rounded-full border-2 border-foreground scale-110 transition-transform hover:scale-110"
-                    style={{ backgroundColor: selectedColor }}
-                    aria-label="Custom color selected"
+                    onClick={() => {
+                      setSelectedColor(color);
+                      clearFieldError("color");
+                    }}
+                    className={cn(
+                      "h-8 w-8 rounded-full border-2 transition-transform hover:scale-110",
+                      selectedColor === color
+                        ? "border-foreground scale-110"
+                        : "border-transparent"
+                    )}
+                    style={{ backgroundColor: color }}
+                    aria-label={`Select custom color ${color}`}
                   />
-                )}
+                ))}
 
                 {/* Custom color picker trigger */}
                 <button

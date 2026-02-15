@@ -75,37 +75,50 @@ export function RecentBoards() {
         </button>
       </div>
       <div className="space-y-2">
-        {recentBoards.map((board) => (
-          <div
-            key={board.id}
-            className="group w-full flex items-center justify-between rounded-lg border px-4 py-3 text-sm hover:bg-muted/50 transition-colors cursor-pointer"
-            onClick={() => router.push(`/b/${board.id}`)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") router.push(`/b/${board.id}`);
-            }}
-          >
-            <div className="flex flex-col items-start gap-0.5 min-w-0">
-              <span className="font-mono text-xs truncate max-w-50">
-                {board.id.slice(0, 8)}…
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                Visited {formatRelative(board.visitedAt)}
-              </span>
+        {recentBoards.map((board) => {
+          const boardPath = board.isLocal ? `/local/${board.id}` : `/b/${board.id}`;
+          const badgeText = board.isLocal ? "📍 Local" : "☁️ Shared";
+          const badgeColor = board.isLocal 
+            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200" 
+            : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200";
+          
+          return (
+            <div
+              key={board.id}
+              className="group w-full flex items-center justify-between rounded-lg border px-4 py-3 text-sm hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => router.push(boardPath)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") router.push(boardPath);
+              }}
+            >
+              <div className="flex flex-col items-start gap-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs truncate max-w-50">
+                    {board.id.slice(board.isLocal ? 6 : 0, board.isLocal ? 14 : 8)}…
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeColor}`}>
+                    {badgeText}
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  Visited {formatRelative(board.visitedAt)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={(e) => handleRemoveBoard(e, board.id)}
+                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1 rounded-md hover:bg-destructive/10"
+                  aria-label={`Remove board ${board.id.slice(0, 8)}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={(e) => handleRemoveBoard(e, board.id)}
-                className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1 rounded-md hover:bg-destructive/10"
-                aria-label={`Remove board ${board.id.slice(0, 8)}`}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </motion.section>
   );

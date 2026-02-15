@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { boardService } from "@/services/board-service";
+import { createLocalBoard } from "@/services/local-storage-service";
 
 export function CreateBoardButton() {
   const router = useRouter();
@@ -14,8 +14,8 @@ export function CreateBoardButton() {
   async function handleCreateBoard() {
     setIsCreating(true);
     try {
-      const board = await boardService.create();
-      router.push(`/b/${board.id}`);
+      const board = createLocalBoard();
+      router.push(`/local/${board.id}`);
     } catch (error) {
       console.error("Failed to create board:", error);
       toast.error("Failed to create board. Please try again.");
