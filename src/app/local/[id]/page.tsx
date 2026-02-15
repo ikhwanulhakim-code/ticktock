@@ -157,18 +157,6 @@ export default function LocalBoardPage() {
             />
 
             <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
-              {/* Local board badge */}
-              {events.length > 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs font-medium">
-                    📍 Local Board
-                  </span>
-                  <span className="text-xs">
-                    This board is only on this device. Click Share to publish.
-                  </span>
-                </div>
-              )}
-
               {/* Toolbar */}
               {events.length > 0 && (
                 <div className="space-y-2">
