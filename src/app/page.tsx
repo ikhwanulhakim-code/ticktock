@@ -1,8 +1,10 @@
 import Image from "next/image";
-import { Link2, Smartphone, Monitor, Plus, Github } from "lucide-react";
+import { Link2, Smartphone, Monitor, Plus } from "lucide-react";
 import { HeroAnimation } from "@/components/features/hero-animation";
 import { CreateBoardButton } from "@/components/features/create-board-button";
 import { RecentBoards } from "@/components/features/recent-boards";
+import { PageHeader } from "@/components/shared/page-header";
+import { PageFooter } from "@/components/shared/page-footer";
 
 const JSON_LD = {
   "@context": "https://schema.org",
@@ -27,6 +29,12 @@ const JSON_LD = {
     "Focus mode",
     "Drag-and-drop reordering",
   ],
+  author: {
+    "@type": "Person",
+    name: "Ikhwanul Hakim",
+    url: "https://ikhwanulhakim.site",
+  },
+  datePublished: "2025-02-13",
 };
 
 export default function LandingPage() {
@@ -37,35 +45,7 @@ export default function LandingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
       />
       <div className="min-h-screen bg-background flex flex-col">
-        {/* Header */}
-        <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-sm">
-          <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4">
-            <div className="flex items-center gap-2">
-              <Image
-                src="/app_icon.webp"
-                alt="TickTock logo"
-                width={28}
-                height={28}
-                className="rounded"
-                priority
-              />
-              <span className="text-2xl font-bold tracking-tight" aria-hidden="true">
-                Tick<span className="text-primary/60">Tock</span>
-              </span>
-            </div>
-            <nav aria-label="Main navigation">
-              <a
-                href="https://github.com/ikhwanulhakim-code/ticktock"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <Github className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Peek the code</span>
-              </a>
-            </nav>
-          </div>
-        </header>
+        <PageHeader />
 
         {/* Hero */}
         <main className="flex-1 flex flex-col items-center justify-center px-4 py-16">
@@ -96,24 +76,24 @@ export default function LandingPage() {
             >
               <div className="flex flex-col items-center gap-2 rounded-lg border p-4">
                 <Link2 className="h-5 w-5 text-primary" aria-hidden="true" />
-                <h2 className="text-sm text-muted-foreground text-center font-medium">
+                <p className="text-sm text-muted-foreground text-center font-medium">
                   Share via magic link
-                </h2>
+                </p>
               </div>
               <div className="flex flex-col items-center gap-2 rounded-lg border p-4">
                 <div className="flex gap-1" aria-hidden="true">
                   <Smartphone className="h-5 w-5 text-primary" />
                   <Monitor className="h-5 w-5 text-primary" />
                 </div>
-                <h2 className="text-sm text-muted-foreground text-center font-medium">
+                <p className="text-sm text-muted-foreground text-center font-medium">
                   Cross-device access
-                </h2>
+                </p>
               </div>
               <div className="flex flex-col items-center gap-2 rounded-lg border p-4">
                 <Plus className="h-5 w-5 text-primary" aria-hidden="true" />
-                <h2 className="text-sm text-muted-foreground text-center font-medium">
+                <p className="text-sm text-muted-foreground text-center font-medium">
                   No sign-up required
-                </h2>
+                </p>
               </div>
             </section>
 
@@ -125,12 +105,7 @@ export default function LandingPage() {
           <RecentBoards />
         </main>
 
-        {/* Footer */}
-        <footer className="border-t py-6">
-          <div className="mx-auto max-w-3xl px-4 flex items-center justify-center text-xs text-muted-foreground">
-            <p>© {new Date().getFullYear()} TickTock. Free countdown timer for everyone.</p>
-          </div>
-        </footer>
+        <PageFooter />
       </div>
     </>
   );

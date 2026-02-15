@@ -41,9 +41,10 @@ export const metadata: Metadata = {
     "timer online",
     "ticktock",
   ],
+  alternates: {
+    canonical: "/",
+  },
   icons: [
-    { rel: "icon", url: "/favicon.ico", sizes: "any" },
-    { rel: "icon", url: "/icon.webp", type: "image/webp" },
     { rel: "apple-touch-icon", url: "/app_icon.webp" },
   ],
   openGraph: {

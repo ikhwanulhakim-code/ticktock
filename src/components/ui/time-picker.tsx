@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
-  PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Popover as PopoverPrimitive } from "radix-ui";
 
 interface TimePickerProps {
   hours: number | undefined;
@@ -54,12 +54,12 @@ export function TimePicker({ hours, minutes, onChange, hasError }: TimePickerPro
   const displayMinutes = minutes !== undefined ? minutes : undefined;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           className={cn(
-            "w-[120px] justify-start text-left font-normal",
+            "w-30 justify-start text-left font-normal",
             !hasValue && "text-muted-foreground",
             hasError && "border-destructive"
           )}
@@ -68,69 +68,84 @@ export function TimePicker({ hours, minutes, onChange, hasError }: TimePickerPro
           {hasValue ? `${pad(hours)}:${pad(displayMinutes!)}` : "Time"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <div className="flex divide-x">
-          {/* Hours column */}
-          <div className="flex flex-col">
-            <div className="px-3 py-2 text-xs font-medium text-muted-foreground text-center border-b">
-              Hour
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          align="start"
+          side="bottom"
+          sideOffset={4}
+          avoidCollisions
+          collisionPadding={8}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="z-60 overflow-hidden rounded-md border bg-popover shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          style={{ width: "auto" }}
+        >
+          <div className="flex divide-x">
+            {/* Hours column */}
+            <div className="flex flex-col w-16">
+              <div className="px-2 py-2 text-xs font-medium text-muted-foreground text-center border-b">
+                Hour
+              </div>
+              <div
+                ref={hourRef}
+                className="h-50 px-1 py-1"
+                style={{ overflowY: "auto", overscrollBehavior: "contain" }}
+                onWheel={(e) => e.stopPropagation()}
+              >
+                {HOURS.map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    data-value={h}
+                    onClick={() => {
+                      onChange(h, minutes ?? 0);
+                    }}
+                    className={cn(
+                      "w-full rounded-md px-2 py-1.5 text-sm text-center transition-colors",
+                      hours === h
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    {pad(h)}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div
-              ref={hourRef}
-              className="h-[200px] overflow-y-auto scrollbar-thin px-1 py-1"
-            >
-              {HOURS.map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  data-value={h}
-                  onClick={() => {
-                    onChange(h, minutes ?? 0);
-                  }}
-                  className={cn(
-                    "w-full rounded-md px-4 py-1.5 text-sm text-center transition-colors",
-                    hours === h
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent hover:text-accent-foreground"
-                  )}
-                >
-                  {pad(h)}
-                </button>
-              ))}
-            </div>
-          </div>
 
-          {/* Minutes column */}
-          <div className="flex flex-col">
-            <div className="px-3 py-2 text-xs font-medium text-muted-foreground text-center border-b">
-              Min
-            </div>
-            <div
-              ref={minuteRef}
-              className="h-[200px] overflow-y-auto scrollbar-thin px-1 py-1"
-            >
-              {MINUTES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  data-value={m}
-                  onClick={() => {
-                    onChange(hours ?? 0, m);
-                  }}
-                  className={cn(
-                    "w-full rounded-md px-4 py-1.5 text-sm text-center transition-colors",
-                    minutes !== undefined && Math.round(minutes / 5) * 5 === m
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent hover:text-accent-foreground"
-                  )}
-                >
-                  {pad(m)}
-                </button>
-              ))}
+            {/* Minutes column */}
+            <div className="flex flex-col w-16">
+              <div className="px-2 py-2 text-xs font-medium text-muted-foreground text-center border-b">
+                Min
+              </div>
+              <div
+                ref={minuteRef}
+                className="h-50 px-1 py-1"
+                style={{ overflowY: "auto", overscrollBehavior: "contain" }}
+                onWheel={(e) => e.stopPropagation()}
+              >
+                {MINUTES.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    data-value={m}
+                    onClick={() => {
+                      onChange(hours ?? 0, m);
+                    }}
+                    className={cn(
+                      "w-full rounded-md px-2 py-1.5 text-sm text-center transition-colors",
+                      minutes !== undefined && Math.round(minutes / 5) * 5 === m
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    {pad(m)}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </PopoverContent>
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
     </Popover>
   );
 }

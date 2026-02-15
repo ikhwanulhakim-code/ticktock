@@ -17,7 +17,7 @@ function SkeletonCard({ index }: { index: number }) {
       }}
     >
       {/* Shimmer overlay */}
-      <div className="pointer-events-none absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-muted-foreground/5 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-linear-to-r from-transparent via-muted-foreground/5 to-transparent" />
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">

@@ -59,7 +59,7 @@ export function DateTimePicker({
 
   return (
     <div className="flex gap-2">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen} modal={false}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -73,7 +73,13 @@ export function DateTimePicker({
             {value ? format(value, "PPP") : "Pick a date"}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent
+          className="z-60 w-auto p-0"
+          align="start"
+          avoidCollisions
+          collisionPadding={8}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <Calendar
             mode="single"
             selected={value}

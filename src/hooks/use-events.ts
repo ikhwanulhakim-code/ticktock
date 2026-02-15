@@ -31,15 +31,19 @@ export function useCreateEvent(boardId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateEventInput) => eventService.create(boardId, input),
+    mutationFn: async (input: CreateEventInput): Promise<TickTockEvent> => {
+      return eventService.create(boardId, input);
+    },
 
     // Optimistically add the event BEFORE the API call
     onMutate: async (input: CreateEventInput) => {
       await queryClient.cancelQueries({ queryKey: eventsKey(boardId) });
       const previous = queryClient.getQueryData<TickTockEvent[]>(eventsKey(boardId));
 
+      const tempId = crypto.randomUUID();
+
       const optimisticEvent: TickTockEvent = {
-        id: crypto.randomUUID(),
+        id: tempId,
         title: input.title,
         description: input.description ?? "",
         targetDate: input.targetDate,
@@ -54,7 +58,18 @@ export function useCreateEvent(boardId: string) {
         old ? [...old, optimisticEvent] : [optimisticEvent]
       );
 
-      return { previous };
+      return { previous, tempId };
+    },
+
+    // Replace the optimistic event with the real server response
+    onSuccess: (serverEvent, _input, context) => {
+      if (context?.tempId) {
+        queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
+          old
+            ? old.map((e) => (e.id === context.tempId ? serverEvent : e))
+            : [serverEvent]
+        );
+      }
     },
 
     // Rollback on error
@@ -62,11 +77,6 @@ export function useCreateEvent(boardId: string) {
       if (context?.previous) {
         queryClient.setQueryData(eventsKey(boardId), context.previous);
       }
-    },
-
-    // Sync with server response
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
     },
   });
 }

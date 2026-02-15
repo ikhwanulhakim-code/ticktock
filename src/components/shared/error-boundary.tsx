@@ -38,7 +38,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       return (
-        <div className="flex min-h-[300px] flex-col items-center justify-center gap-4 rounded-xl border bg-card p-8 text-center">
+        <div className="flex min-h-75 flex-col items-center justify-center gap-4 rounded-xl border bg-card p-8 text-center">
           <h3 className="text-lg font-semibold">Something went wrong</h3>
           <p className="max-w-sm text-sm text-muted-foreground">
             An unexpected error occurred. Please try refreshing the page.
