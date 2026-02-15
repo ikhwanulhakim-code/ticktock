@@ -9,9 +9,11 @@ import { ShareButton } from "@/components/shared/share-button";
 
 interface HeaderProps {
   onAddClick: () => void;
+  boardId?: string;
+  isLocal?: boolean;
 }
 
-export function Header({ onAddClick }: HeaderProps) {
+export function Header({ onAddClick, boardId, isLocal }: HeaderProps) {
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-sm">
@@ -37,6 +39,8 @@ export function Header({ onAddClick }: HeaderProps) {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
+              boardId={boardId}
+              isLocal={isLocal}
             />
             <Button
               size="icon"
@@ -63,6 +67,8 @@ export function Header({ onAddClick }: HeaderProps) {
           variant="outline"
           size="icon"
           className="h-11 w-11 rounded-full shadow-md bg-background"
+          boardId={boardId}
+          isLocal={isLocal}
         />
         <Button
           size="icon"

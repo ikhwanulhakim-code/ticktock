@@ -82,3 +82,11 @@ export function msToTimeParts(ms: number) {
 export function pad(n: number): string {
   return n.toString().padStart(2, "0");
 }
+
+/**
+ * Format a fallback title for events without a title.
+ * Returns formatted date-time like "Feb 20, 2026 at 14:30".
+ */
+export function formatEventFallbackTitle(date: Date): string {
+  return format(date, "MMM dd, yyyy 'at' HH:mm");
+}

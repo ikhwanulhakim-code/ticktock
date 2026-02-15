@@ -8,10 +8,14 @@ datasource db {
 }
 
 model Board {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isShared  Boolean   @default(false)
+  sharedAt  DateTime?
   events    Event[]
+
+  @@index([isShared, createdAt])
 }
 
 model Event {

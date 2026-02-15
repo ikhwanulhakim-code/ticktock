@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef, useDeferredValue } from "reac
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
-import { AnimatePresence } from "framer-motion";
 import { Header } from "@/components/shared/header";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { SearchBar } from "@/components/shared/search-bar";
@@ -21,10 +20,6 @@ const EventModal = dynamic(
   () => import("@/components/features/add-event-modal").then((m) => ({ default: m.EventModal })),
   { ssr: false }
 );
-const FocusTimer = dynamic(
-  () => import("@/components/features/focus-timer").then((m) => ({ default: m.FocusTimer })),
-  { ssr: false }
-);
 
 export default function BoardPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -35,7 +30,6 @@ export default function BoardPage() {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [modalOpen, setModalOpen] = useState(false);
   const [editEvent, setEditEvent] = useState<TickTockEvent | null>(null);
-  const [focusEvent, setFocusEvent] = useState<TickTockEvent | null>(null);
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null);
   const clearHighlight = useCallback(() => setNewlyCreatedId(null), []);
 
@@ -135,26 +129,19 @@ export default function BoardPage() {
     reorderEvents.mutate(orderedIds);
   }
 
-  // Focus Mode — fullscreen overlay
-  if (focusEvent) {
-    return (
-      <TickerProvider>
-        <AnimatePresence>
-          <FocusTimer
-            key={focusEvent.id}
-            event={focusEvent}
-            onBack={() => setFocusEvent(null)}
-          />
-        </AnimatePresence>
-      </TickerProvider>
-    );
+  function handleFocusEvent(event: TickTockEvent) {
+    router.push(`/b/${boardId}/focus/${event.id}`);
   }
 
   return (
     <TickerProvider>
       <ErrorBoundary>
       <div className="min-h-screen bg-background">
-      <Header onAddClick={() => { setEditEvent(null); setModalOpen(true); }} />
+      <Header 
+        onAddClick={() => { setEditEvent(null); setModalOpen(true); }}
+        boardId={boardId}
+        isLocal={false}
+      />
 
       <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
         {/* Toolbar: search + sort toggle — only show when there are events */}
@@ -180,7 +167,7 @@ export default function BoardPage() {
           highlightEventId={newlyCreatedId}
           onDelete={handleDelete}
           onEdit={handleEdit}
-          onSelect={setFocusEvent}
+          onSelect={handleFocusEvent}
           onReorder={handleReorder}
           onSortModeChange={setSortMode}
           onHighlightComplete={clearHighlight}
