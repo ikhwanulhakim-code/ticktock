@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { ShareButton } from "@/components/shared/share-button";
 import { useTimer } from "@/hooks/use-timer";
 import { pad, formatDateTime } from "@/lib/date-utils";
 import type { TickTockEvent } from "@/types";
@@ -46,6 +47,17 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
+      </div>
+
+      {/* Share button */}
+      <div className="absolute right-4 top-4">
+        <ShareButton
+          title={`${event.title} — TickTock`}
+          text={`Counting down to ${event.title}!`}
+          variant="ghost"
+          size="sm"
+          label="Share"
+        />
       </div>
 
       {/* Color accent dot */}
