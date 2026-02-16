@@ -81,22 +81,24 @@ export function EventModal({
     setCustomColors(getCustomColors());
   }, []);
 
-  // Populate form when editing
+  // Populate form when editing, reset when creating
   useEffect(() => {
-    if (editEvent && open) {
+    if (!open) return;
+    if (editEvent) {
       setTitle(editEvent.title);
       setDescription(editEvent.description ?? "");
-      setMode("datetime");
-      setDateTimeValue(new Date(editEvent.targetDate));
       setSelectedColor(editEvent.color);
-      setDuration({ hours: 0, minutes: 0, seconds: 0 });
-      setDurationDisplay({ hours: "0", minutes: "0", seconds: "0" });
       setErrors({});
-    } else if (!editEvent && open) {
-      // No pre-filled defaults — user must specify values
+    } else {
+      // Reset everything for create mode
+      setTitle("");
+      setDescription("");
+      setMode("duration");
       setDateTimeValue(undefined);
       setDuration({ hours: 0, minutes: 0, seconds: 0 });
       setDurationDisplay({ hours: "0", minutes: "0", seconds: "0" });
+      setSelectedColor(EVENT_COLORS[0]);
+      setErrors({});
     }
   }, [editEvent, open]);
 
@@ -121,9 +123,6 @@ export function EventModal({
   }
 
   function handleOpenChange(newOpen: boolean) {
-    if (!newOpen) {
-      resetForm();
-    }
     onOpenChange(newOpen);
   }
 
@@ -157,47 +156,33 @@ export function EventModal({
     e.preventDefault();
     setErrors({});
 
-    const targetDate = computeTargetDate();
-    const schema = isEditing ? updateEventSchema : createEventSchema;
-    const result = schema.safeParse({
-      title,
-      description,
-      targetDate,
-      color: selectedColor,
-    });
+    if (isEditing) {
+      // Edit mode: only validate title, description, color
+      const result = updateEventSchema.safeParse({
+        title,
+        description,
+        color: selectedColor,
+      });
 
-    if (!result.success) {
-      const fieldErrors: FieldErrors = {};
-      for (const issue of result.error.issues) {
-        const field = issue.path[0] as string;
-        if (!fieldErrors[field]) {
-          fieldErrors[field] = issue.message;
+      if (!result.success) {
+        const fieldErrors: FieldErrors = {};
+        for (const issue of result.error.issues) {
+          const field = issue.path[0] as string;
+          if (!fieldErrors[field]) {
+            fieldErrors[field] = issue.message;
+          }
         }
+        setErrors(fieldErrors);
+        return;
       }
-      // Map targetDate errors contextually
-      if (fieldErrors.targetDate) {
-        if (mode === "datetime") {
-          fieldErrors.targetDate =
-            targetDate === ""
-              ? "Please select a date and time"
-              : fieldErrors.targetDate;
-        } else {
-          fieldErrors.targetDate = "Duration must be greater than zero";
-        }
-      }
-      setErrors(fieldErrors);
-      return;
-    }
 
-    try {
-      if (isEditing) {
+      try {
         if (isLocal) {
           await updateEventLocal.mutateAsync({
             eventId: editEvent.id,
             updates: {
               title: result.data.title,
               description: result.data.description ?? "",
-              targetDate: result.data.targetDate,
               color: result.data.color,
             },
           });
@@ -207,45 +192,94 @@ export function EventModal({
             data: {
               title: result.data.title,
               description: result.data.description ?? "",
-              targetDate: result.data.targetDate,
               color: result.data.color,
             },
           });
         }
-      } else {
+
+        // Save custom color to localStorage only after successful save
+        if (
+          !EVENT_COLORS.includes(
+            result.data.color as (typeof EVENT_COLORS)[number],
+          )
+        ) {
+          addCustomColor(result.data.color);
+          setCustomColors(getCustomColors());
+        }
+
+        resetForm();
+        onOpenChange(false);
+      } catch {
+        setErrors({ _form: "Failed to update event" });
+      }
+    } else {
+      // Create mode: validate everything including targetDate
+      const targetDate = computeTargetDate();
+      const result = createEventSchema.safeParse({
+        title,
+        description,
+        targetDate,
+        color: selectedColor,
+        timerMode: mode,
+      });
+
+      if (!result.success) {
+        const fieldErrors: FieldErrors = {};
+        for (const issue of result.error.issues) {
+          const field = issue.path[0] as string;
+          if (!fieldErrors[field]) {
+            fieldErrors[field] = issue.message;
+          }
+        }
+        // Map targetDate errors contextually
+        if (fieldErrors.targetDate) {
+          if (mode === "datetime") {
+            fieldErrors.targetDate =
+              targetDate === ""
+                ? "Please select a date and time"
+                : fieldErrors.targetDate;
+          } else {
+            fieldErrors.targetDate = "Duration must be greater than zero";
+          }
+        }
+        setErrors(fieldErrors);
+        return;
+      }
+
+      try {
         const created = isLocal
           ? await createEventLocal.mutateAsync({
               title: result.data.title,
               description: result.data.description ?? "",
               targetDate: result.data.targetDate,
               color: result.data.color,
+              timerMode: result.data.timerMode,
             })
           : await createEventAPI.mutateAsync({
               title: result.data.title,
               description: result.data.description ?? "",
               targetDate: result.data.targetDate,
               color: result.data.color,
+              timerMode: result.data.timerMode,
             });
         toast.success("Countdown created!");
         onEventCreated?.(created.id);
-      }
 
-      // Save custom color to localStorage only after successful save
-      if (
-        !EVENT_COLORS.includes(
-          result.data.color as (typeof EVENT_COLORS)[number],
-        )
-      ) {
-        addCustomColor(result.data.color);
-        setCustomColors(getCustomColors());
-      }
+        // Save custom color to localStorage only after successful save
+        if (
+          !EVENT_COLORS.includes(
+            result.data.color as (typeof EVENT_COLORS)[number],
+          )
+        ) {
+          addCustomColor(result.data.color);
+          setCustomColors(getCustomColors());
+        }
 
-      resetForm();
-      onOpenChange(false);
-    } catch {
-      setErrors({
-        _form: isEditing ? "Failed to update event" : "Failed to create event",
-      });
+        resetForm();
+        onOpenChange(false);
+      } catch {
+        setErrors({ _form: "Failed to create event" });
+      }
     }
   }
 
@@ -346,145 +380,170 @@ export function EventModal({
             )}
           </div>
 
-          {/* Mode Toggle */}
-          <div className="space-y-2">
-            <Label>Timer Mode</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={mode === "duration" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMode("duration")}
-              >
-                Duration
-              </Button>
-              <Button
-                type="button"
-                variant={mode === "datetime" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMode("datetime")}
-              >
-                Specific Date
-              </Button>
-            </div>
-          </div>
-
-          {/* Mode-specific inputs */}
-          <AnimatePresence mode="wait">
-            {mode === "datetime" ? (
-              <motion.div
-                key="datetime"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-2"
-              >
-                <Label>Target Date & Time</Label>
-                <DateTimePicker
-                  value={dateTimeValue}
-                  onChange={(date) => {
-                    setDateTimeValue(date);
-                    clearFieldError("targetDate");
-                  }}
-                  hasError={!!errors.targetDate}
-                />
-                {errors.targetDate && (
-                  <p className="text-xs text-destructive">
-                    {errors.targetDate}
-                  </p>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="duration"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-2"
-              >
-                <Label>Duration</Label>
-                <div className="flex gap-3">
-                  <div className="flex-1 space-y-1">
-                    <span className="text-xs text-muted-foreground">Hours</span>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={durationDisplay.hours}
-                      onChange={(e) =>
-                        handleDurationChange("hours", e.target.value)
-                      }
-                      onFocus={(e) => {
-                        if (durationDisplay.hours === "0") {
-                          setDurationDisplay((d) => ({ ...d, hours: "" }));
-                        }
-                        e.target.select();
-                      }}
-                      onBlur={() => {
-                        if (!durationDisplay.hours)
-                          setDurationDisplay((d) => ({ ...d, hours: "0" }));
-                      }}
-                      className={cn(errors.targetDate && "border-destructive")}
-                    />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <span className="text-xs text-muted-foreground">
-                      Minutes
-                    </span>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={durationDisplay.minutes}
-                      onChange={(e) =>
-                        handleDurationChange("minutes", e.target.value)
-                      }
-                      onFocus={(e) => {
-                        if (durationDisplay.minutes === "0") {
-                          setDurationDisplay((d) => ({ ...d, minutes: "" }));
-                        }
-                        e.target.select();
-                      }}
-                      onBlur={() => {
-                        if (!durationDisplay.minutes)
-                          setDurationDisplay((d) => ({ ...d, minutes: "0" }));
-                      }}
-                      className={cn(errors.targetDate && "border-destructive")}
-                    />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <span className="text-xs text-muted-foreground">
-                      Seconds
-                    </span>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={durationDisplay.seconds}
-                      onChange={(e) =>
-                        handleDurationChange("seconds", e.target.value)
-                      }
-                      onFocus={(e) => {
-                        if (durationDisplay.seconds === "0") {
-                          setDurationDisplay((d) => ({ ...d, seconds: "" }));
-                        }
-                        e.target.select();
-                      }}
-                      onBlur={() => {
-                        if (!durationDisplay.seconds)
-                          setDurationDisplay((d) => ({ ...d, seconds: "0" }));
-                      }}
-                      className={cn(errors.targetDate && "border-destructive")}
-                    />
-                  </div>
+          {/* Mode Toggle & Inputs — only shown when creating */}
+          {!isEditing && (
+            <>
+              {/* Mode Toggle */}
+              <div className="space-y-2">
+                <Label>Timer Mode</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={mode === "duration" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setMode("duration")}
+                  >
+                    Duration
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={mode === "datetime" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setMode("datetime")}
+                  >
+                    Specific Date
+                  </Button>
                 </div>
-                {errors.targetDate && (
-                  <p className="text-xs text-destructive">
-                    {errors.targetDate}
-                  </p>
+              </div>
+
+              {/* Mode-specific inputs */}
+              <AnimatePresence mode="wait">
+                {mode === "datetime" ? (
+                  <motion.div
+                    key="datetime"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.15 }}
+                    className="space-y-2"
+                  >
+                    <Label>Target Date & Time</Label>
+                    <DateTimePicker
+                      value={dateTimeValue}
+                      onChange={(date) => {
+                        setDateTimeValue(date);
+                        clearFieldError("targetDate");
+                      }}
+                      hasError={!!errors.targetDate}
+                    />
+                    {errors.targetDate && (
+                      <p className="text-xs text-destructive">
+                        {errors.targetDate}
+                      </p>
+                    )}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="duration"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.15 }}
+                    className="space-y-2"
+                  >
+                    <Label>Duration</Label>
+                    <div className="flex gap-3">
+                      <div className="flex-1 space-y-1">
+                        <span className="text-xs text-muted-foreground">
+                          Hours
+                        </span>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={durationDisplay.hours}
+                          onChange={(e) =>
+                            handleDurationChange("hours", e.target.value)
+                          }
+                          onFocus={(e) => {
+                            if (durationDisplay.hours === "0") {
+                              setDurationDisplay((d) => ({ ...d, hours: "" }));
+                            }
+                            e.target.select();
+                          }}
+                          onBlur={() => {
+                            if (!durationDisplay.hours)
+                              setDurationDisplay((d) => ({ ...d, hours: "0" }));
+                          }}
+                          className={cn(
+                            errors.targetDate && "border-destructive",
+                          )}
+                        />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <span className="text-xs text-muted-foreground">
+                          Minutes
+                        </span>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={durationDisplay.minutes}
+                          onChange={(e) =>
+                            handleDurationChange("minutes", e.target.value)
+                          }
+                          onFocus={(e) => {
+                            if (durationDisplay.minutes === "0") {
+                              setDurationDisplay((d) => ({
+                                ...d,
+                                minutes: "",
+                              }));
+                            }
+                            e.target.select();
+                          }}
+                          onBlur={() => {
+                            if (!durationDisplay.minutes)
+                              setDurationDisplay((d) => ({
+                                ...d,
+                                minutes: "0",
+                              }));
+                          }}
+                          className={cn(
+                            errors.targetDate && "border-destructive",
+                          )}
+                        />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <span className="text-xs text-muted-foreground">
+                          Seconds
+                        </span>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={durationDisplay.seconds}
+                          onChange={(e) =>
+                            handleDurationChange("seconds", e.target.value)
+                          }
+                          onFocus={(e) => {
+                            if (durationDisplay.seconds === "0") {
+                              setDurationDisplay((d) => ({
+                                ...d,
+                                seconds: "",
+                              }));
+                            }
+                            e.target.select();
+                          }}
+                          onBlur={() => {
+                            if (!durationDisplay.seconds)
+                              setDurationDisplay((d) => ({
+                                ...d,
+                                seconds: "0",
+                              }));
+                          }}
+                          className={cn(
+                            errors.targetDate && "border-destructive",
+                          )}
+                        />
+                      </div>
+                    </div>
+                    {errors.targetDate && (
+                      <p className="text-xs text-destructive">
+                        {errors.targetDate}
+                      </p>
+                    )}
+                  </motion.div>
                 )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </AnimatePresence>
+            </>
+          )}
 
           {/* Color Palette */}
           <div className="space-y-2">

@@ -35,6 +35,7 @@ interface EventListProps {
   onReorder: (orderedIds: string[]) => void;
   onSortModeChange: (mode: SortMode) => void;
   onHighlightComplete?: () => void;
+  onRestart?: (id: string) => void;
 }
 
 /**
@@ -42,7 +43,8 @@ interface EventListProps {
  */
 function sortByUrgency(events: TickTockEvent[]): TickTockEvent[] {
   return [...events].sort(
-    (a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime()
+    (a, b) =>
+      new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime(),
   );
 }
 
@@ -59,6 +61,7 @@ export function EventList({
   onReorder,
   onSortModeChange,
   onHighlightComplete,
+  onRestart,
 }: EventListProps) {
   // Sensors for dnd-kit
   const sensors = useSensors(
@@ -67,10 +70,10 @@ export function EventList({
     }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 150, tolerance: 5 },
-    }), 
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   // Auto-scroll to newly created event and apply highlight animation
@@ -79,7 +82,7 @@ export function EventList({
     // Wait for the DOM to update after query invalidation
     const rafId = requestAnimationFrame(() => {
       const el = document.querySelector<HTMLElement>(
-        `[data-event-id="${highlightEventId}"]`
+        `[data-event-id="${highlightEventId}"]`,
       );
       if (!el) return;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -109,7 +112,7 @@ export function EventList({
   const filtered = useMemo(() => {
     if (!searchQuery) return sortedEvents;
     return sortedEvents.filter((e) =>
-      e.title.toLowerCase().includes(searchQuery.toLowerCase())
+      e.title.toLowerCase().includes(searchQuery.toLowerCase()),
     );
   }, [sortedEvents, searchQuery]);
 
@@ -175,6 +178,7 @@ export function EventList({
                 onDelete={onDelete}
                 onEdit={onEdit}
                 onClick={onSelect}
+                onRestart={onRestart}
               />
             ))}
           </div>
