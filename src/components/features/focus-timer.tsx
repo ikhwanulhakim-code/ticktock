@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ShareButton } from "@/components/shared/share-button";
 import { useTimer } from "@/hooks/use-timer";
-import { pad, formatDateTime, formatEventFallbackTitle } from "@/lib/date-utils";
+import {
+  pad,
+  formatDateTime,
+  formatEventFallbackTitle,
+} from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import type { TickTockEvent } from "@/types";
 
@@ -20,7 +24,8 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
   const timer = useTimer(event.targetDate, event.createdAt);
   const [isImmersive, setIsImmersive] = useState(false);
 
-  const displayTitle = event.title.trim() || formatEventFallbackTitle(new Date(event.targetDate));
+  const displayTitle =
+    event.title.trim() || formatEventFallbackTitle(new Date(event.targetDate));
 
   // Escape key to exit focus mode or immersive mode
   const handleKeyDown = useCallback(
@@ -33,7 +38,7 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
         }
       }
     },
-    [onBack, isImmersive]
+    [onBack, isImmersive],
   );
 
   useEffect(() => {
@@ -62,7 +67,12 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
               transition={{ duration: 0.2 }}
               className="absolute left-4 top-4"
             >
-              <Button variant="ghost" size="sm" onClick={onBack} aria-label="Exit focus mode">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                aria-label="Exit focus mode"
+              >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
@@ -152,7 +162,7 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
       <div
         className={cn(
           "font-mono text-7xl font-bold tracking-wider tabular-nums sm:text-8xl md:text-9xl",
-          isImmersive && "cursor-pointer"
+          isImmersive && "cursor-pointer",
         )}
         onClick={() => isImmersive && setIsImmersive(false)}
         role={isImmersive ? "button" : undefined}
@@ -167,7 +177,7 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
                 {timer.days} day{timer.days !== 1 ? "s" : ""}
               </div>
             )}
-            <span>
+            <span style={{ color: event.color }}>
               {pad(timer.hours)}:{pad(timer.minutes)}:{pad(timer.seconds)}
             </span>
           </>
