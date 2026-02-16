@@ -43,6 +43,8 @@ export interface TickTockEvent {
   targetDate: string; // ISO String
   createdAt: string; // ISO String
   color: string; // Hex code
+  durationMs: number; // Original countdown duration in ms (0 for datetime mode)
+  timerMode: "duration" | "datetime"; // Whether this is a duration or specific-date countdown
   isCompleted: boolean;
   order: number;
   boardId: string;
@@ -54,7 +56,7 @@ export interface TickTockEvent {
 
 export type CreateEventInput = Omit<
   TickTockEvent,
-  "id" | "createdAt" | "isCompleted" | "order" | "boardId"
+  "id" | "createdAt" | "isCompleted" | "order" | "boardId" | "durationMs"
 >;
 
 // ============================================================
@@ -94,6 +96,7 @@ export const createEventSchema = z.object({
       "Target date must be in the future",
     ),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
+  timerMode: z.enum(["duration", "datetime"]).default("duration"),
 });
 
 export const updateEventSchema = z.object({
@@ -107,13 +110,6 @@ export const updateEventSchema = z.object({
     .max(500, "Description must be 500 characters or less")
     .optional()
     .default(""),
-  targetDate: z
-    .string()
-    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format")
-    .refine(
-      (val) => new Date(val).getTime() > Date.now(),
-      "Target date must be in the future",
-    ),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
 });
 
@@ -132,6 +128,7 @@ export const shareEventSchema = z.object({
     .string()
     .refine((val) => !isNaN(Date.parse(val)), "Invalid date format"),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
+  timerMode: z.enum(["duration", "datetime"]).optional().default("datetime"),
 });
 
 export const shareLocalBoardSchema = z.object({

@@ -9,6 +9,8 @@ export function serializeEvent(event: {
   targetDate: Date;
   createdAt: Date;
   color: string;
+  durationMs: bigint | number;
+  timerMode: string;
   isCompleted: boolean;
   order: number;
   boardId: string;
@@ -20,6 +22,8 @@ export function serializeEvent(event: {
     targetDate: event.targetDate.toISOString(),
     createdAt: event.createdAt.toISOString(),
     color: event.color,
+    durationMs: Number(event.durationMs),
+    timerMode: event.timerMode as "duration" | "datetime",
     isCompleted: event.isCompleted,
     order: event.order,
     boardId: event.boardId,
@@ -57,4 +61,3 @@ export function deserializeLocalData<T>(data: string | null): T | null {
     return null;
   }
 }
-
