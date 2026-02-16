@@ -18,7 +18,12 @@ export interface LocalBoard extends Omit<Board, "isShared" | "sharedAt"> {
   events?: TickTockEvent[];
 }
 
-export type SyncStatus = "synced" | "syncing" | "conflict" | "offline" | "local";
+export type SyncStatus =
+  | "synced"
+  | "syncing"
+  | "conflict"
+  | "offline"
+  | "local";
 
 export interface LocalStorageEvent extends Omit<TickTockEvent, "id"> {
   id: string; // Temp ID for local events (prefixed with "temp_")
@@ -86,11 +91,9 @@ export const createEventSchema = z.object({
     .refine((val) => !isNaN(Date.parse(val)), "Invalid date format")
     .refine(
       (val) => new Date(val).getTime() > Date.now(),
-      "Target date must be in the future"
+      "Target date must be in the future",
     ),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
 });
 
 export const updateEventSchema = z.object({
@@ -109,15 +112,30 @@ export const updateEventSchema = z.object({
     .refine((val) => !isNaN(Date.parse(val)), "Invalid date format")
     .refine(
       (val) => new Date(val).getTime() > Date.now(),
-      "Target date must be in the future"
+      "Target date must be in the future",
     ),
-  color: z
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
+});
+
+export const shareEventSchema = z.object({
+  title: z
     .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
+    .max(100, "Title must be 100 characters or less")
+    .optional()
+    .default(""),
+  description: z
+    .string()
+    .max(500, "Description must be 500 characters or less")
+    .optional()
+    .default(""),
+  targetDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format"),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
 });
 
 export const shareLocalBoardSchema = z.object({
-  events: z.array(createEventSchema).max(100, "Maximum 100 events per board"),
+  events: z.array(shareEventSchema).max(100, "Maximum 100 events per board"),
   sortPreference: z.enum(["urgency", "custom"]).optional(),
   customColors: z.array(z.string().regex(/^#[0-9A-Fa-f]{6}$/)).optional(),
 });
