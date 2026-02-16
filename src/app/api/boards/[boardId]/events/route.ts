@@ -99,12 +99,21 @@ export async function POST(
     });
     const nextOrder = (maxOrder._max.order ?? -1) + 1;
 
+    const targetDateObj = new Date(result.data.targetDate);
+    const timerMode = result.data.timerMode ?? "duration";
+    const durationMs =
+      timerMode === "duration"
+        ? Math.max(0, targetDateObj.getTime() - Date.now())
+        : 0;
+
     const event = await prisma.event.create({
       data: {
         title: result.data.title,
         description: result.data.description ?? "",
-        targetDate: new Date(result.data.targetDate),
+        targetDate: targetDateObj,
         color: result.data.color,
+        durationMs,
+        timerMode,
         order: nextOrder,
         boardId,
       },

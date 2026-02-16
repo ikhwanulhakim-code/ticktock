@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-forwarded-for") ||
       request.headers.get("x-real-ip") ||
       "unknown";
-    
+
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
         { error: "Too many share requests. Please try again later." },
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
             "Content-Type": "application/json",
             "Retry-After": "3600",
           },
-        }
+        },
       );
     }
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json(
         { error: "Validation failed", errors: fieldErrors },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (events.length === 0) {
       return NextResponse.json(
         { error: "Cannot share empty board" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -82,14 +82,22 @@ export async function POST(request: NextRequest) {
         isShared: true,
         sharedAt: new Date(),
         events: {
-          create: events.map((event, index) => ({
-            title: event.title ?? "",
-            description: event.description ?? "",
-            targetDate: new Date(event.targetDate),
-            color: event.color,
-            isCompleted: false,
-            order: index,
-          })),
+          create: events.map((event, index) => {
+            const timerMode = event.timerMode ?? "datetime";
+            const targetMs = new Date(event.targetDate).getTime();
+            const durationMs =
+              timerMode === "duration" ? Math.max(0, targetMs - Date.now()) : 0;
+            return {
+              title: event.title ?? "",
+              description: event.description ?? "",
+              targetDate: new Date(event.targetDate),
+              color: event.color,
+              durationMs,
+              timerMode,
+              isCompleted: false,
+              order: index,
+            };
+          }),
         },
       },
       include: {
@@ -115,13 +123,13 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
           "Cache-Control": "no-cache, no-store, must-revalidate",
         },
-      }
+      },
     );
   } catch (error) {
     console.error("[POST /api/share]", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

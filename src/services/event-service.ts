@@ -61,7 +61,10 @@ export const eventService = {
     boardId: string,
     id: string,
     data: Partial<
-      Omit<TickTockEvent, "id" | "createdAt" | "order" | "boardId">
+      Omit<
+        TickTockEvent,
+        "id" | "createdAt" | "order" | "boardId" | "targetDate" | "durationMs"
+      >
     >,
   ): Promise<TickTockEvent> {
     const res = await fetch(`/api/boards/${boardId}/events/${id}`, {
@@ -75,6 +78,19 @@ export const eventService = {
       throw new Error(
         error.errors ? JSON.stringify(error.errors) : "Failed to update event",
       );
+    }
+
+    return res.json();
+  },
+
+  async restart(boardId: string, id: string): Promise<TickTockEvent> {
+    const res = await fetch(`/api/boards/${boardId}/events/${id}`, {
+      method: "PATCH",
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error ?? "Failed to restart event");
     }
 
     return res.json();
