@@ -37,7 +37,7 @@ export function CreateBoardButton() {
         </>
       ) : (
         <>
-          Return to Home
+          Create New Board
           <ArrowRight className="h-4 w-4" />
         </>
       )}
