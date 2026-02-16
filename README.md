@@ -34,6 +34,8 @@ Create, share, and manage countdown timers without the hassle of sign-ups, login
 - **Focus mode** — Fullscreen a single countdown when you need to stare at time passing (dedicated route per event)
 - **Search** — Type to filter, because scrolling is for the birds
 - **Color coding** — 5 preset colors + custom colors you can save
+- **Timer Modes** — "Duration" (e.g. 20m) or "Target Date" (e.g. Feb 20 at 5 PM)
+- **Restartable** — Quickly reset duration-based timers with one click
 - **Drag & drop** — Reorder things by dragging them around like it's 2010
 - **Share button** — Copy board links via Web Share API or clipboard
 - **Share local boards** — Promote local boards to server-backed shared boards with one click
@@ -204,7 +206,7 @@ React re-renders with new data
 ```
 Board (id, createdAt, updatedAt, isShared, sharedAt)
   ↓ 1:N
-Event (id, title, description, targetDate, color, isCompleted, order, boardId)
+Event (id, title, description, targetDate, color, durationMs, timerMode, isCompleted, order, boardId)
 ```
 
 That's it. No users table. No sessions. No auth. Privacy through simplicity.
