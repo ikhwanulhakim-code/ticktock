@@ -20,6 +20,7 @@ import {
   useEvents,
   useDeleteEvent,
   useReorderEvents,
+  useRestartEvent,
 } from "@/hooks/use-events";
 import { useSortPreference } from "@/hooks/use-sort-preference";
 import { TickerProvider } from "@/hooks/use-ticker";
@@ -54,6 +55,7 @@ export default function BoardPage() {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const pendingDeletesRef = useRef<Set<string>>(new Set());
   const reorderEvents = useReorderEvents(boardId);
+  const restartEvent = useRestartEvent(boardId);
   const { sortMode, setSortMode } = useSortPreference(boardId);
 
   // If the board slug is not a valid UUID, show not found
@@ -162,6 +164,10 @@ export default function BoardPage() {
     router.push(`/b/${boardId}/focus/${event.id}`);
   }
 
+  function handleRestart(id: string) {
+    restartEvent.mutate(id);
+  }
+
   return (
     <TickerProvider>
       <ErrorBoundary>
@@ -203,6 +209,7 @@ export default function BoardPage() {
               onReorder={handleReorder}
               onSortModeChange={setSortMode}
               onHighlightComplete={clearHighlight}
+              onRestart={handleRestart}
             />
           </main>
 

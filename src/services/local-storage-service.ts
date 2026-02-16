@@ -92,7 +92,7 @@ export function createLocalBoard(): LocalBoard {
 
   try {
     const boards = getAllLocalBoards();
-    
+
     // Check if we're at max capacity
     if (boards.length >= MAX_LOCAL_BOARDS) {
       // Delete oldest board
@@ -112,10 +112,7 @@ export function createLocalBoard(): LocalBoard {
     emitChange(board.id);
     return board;
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.name === "QuotaExceededError"
-    ) {
+    if (error instanceof Error && error.name === "QuotaExceededError") {
       handleQuotaExceeded();
       // Retry once
       const boards = getAllLocalBoards();
@@ -152,7 +149,7 @@ export function getAllLocalBoards(): LocalBoard[] {
 
 export function updateLocalBoard(
   id: string,
-  updates: Partial<Pick<LocalBoard, "updatedAt">>
+  updates: Partial<Pick<LocalBoard, "updatedAt">>,
 ): void {
   const storage = getStorage();
   if (!storage) throw new Error("localStorage not available");
@@ -208,18 +205,22 @@ export function getLocalEvents(boardId: string): TickTockEvent[] {
 
 export function createLocalEvent(
   boardId: string,
-  input: CreateEventInput
+  input: CreateEventInput,
 ): TickTockEvent {
   const storage = getStorage();
   if (!storage) throw new Error("localStorage not available");
 
   const events = getLocalEvents(boardId);
   const now = new Date().toISOString();
+  const nowMs = Date.now();
+  const targetMs = new Date(input.targetDate).getTime();
 
   const newEvent: TickTockEvent = {
     id: `temp_${crypto.randomUUID()}`,
     ...input,
     createdAt: now,
+    durationMs:
+      input.timerMode === "duration" ? Math.max(0, targetMs - nowMs) : 0,
     isCompleted: false,
     order: events.length,
     boardId,
@@ -232,10 +233,7 @@ export function createLocalEvent(
     emitChange(boardId);
     return newEvent;
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.name === "QuotaExceededError"
-    ) {
+    if (error instanceof Error && error.name === "QuotaExceededError") {
       handleQuotaExceeded();
       // Retry once
       events.push(newEvent);
@@ -251,7 +249,7 @@ export function createLocalEvent(
 export function updateLocalEvent(
   boardId: string,
   eventId: string,
-  updates: Partial<Omit<TickTockEvent, "id" | "createdAt" | "boardId">>
+  updates: Partial<Omit<TickTockEvent, "id" | "boardId">>,
 ): void {
   const storage = getStorage();
   if (!storage) throw new Error("localStorage not available");
@@ -266,6 +264,39 @@ export function updateLocalEvent(
   emitChange(boardId);
 }
 
+export function restartLocalEvent(
+  boardId: string,
+  eventId: string,
+): TickTockEvent {
+  const storage = getStorage();
+  if (!storage) throw new Error("localStorage not available");
+
+  const events = getLocalEvents(boardId);
+  const index = events.findIndex((e) => e.id === eventId);
+  if (index === -1) throw new Error("Event not found");
+
+  const event = events[index];
+  if (event.timerMode !== "duration") {
+    throw new Error("Only duration-mode countdowns can be restarted");
+  }
+
+  const now = Date.now();
+  const newCreatedAt = new Date(now).toISOString();
+  const newTargetDate = new Date(now + event.durationMs).toISOString();
+
+  events[index] = {
+    ...event,
+    createdAt: newCreatedAt,
+    targetDate: newTargetDate,
+    isCompleted: false,
+  };
+
+  storage.setItem(getEventsKey(boardId), JSON.stringify(events));
+  updateLocalBoard(boardId, { updatedAt: newCreatedAt });
+  emitChange(boardId);
+  return events[index];
+}
+
 export function deleteLocalEvent(boardId: string, eventId: string): void {
   const storage = getStorage();
   if (!storage) throw new Error("localStorage not available");
@@ -277,10 +308,7 @@ export function deleteLocalEvent(boardId: string, eventId: string): void {
   emitChange(boardId);
 }
 
-export function reorderLocalEvents(
-  boardId: string,
-  eventIds: string[]
-): void {
+export function reorderLocalEvents(boardId: string, eventIds: string[]): void {
   const storage = getStorage();
   if (!storage) throw new Error("localStorage not available");
 
@@ -344,7 +372,7 @@ export function emitChange(boardId?: string): void {
 }
 
 export function subscribeToChanges(
-  callback: (boardId?: string) => void
+  callback: (boardId?: string) => void,
 ): () => void {
   if (typeof window === "undefined") return () => {};
 

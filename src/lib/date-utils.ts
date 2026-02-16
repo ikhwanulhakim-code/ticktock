@@ -50,7 +50,7 @@ export function getRemainingMs(targetDate: string): number {
 export function getProgressPercent(
   createdAt: string,
   targetDate: string,
-  now: number = Date.now()
+  now: number = Date.now(),
 ): number {
   const created = new Date(createdAt).getTime();
   const target = new Date(targetDate).getTime();
@@ -88,5 +88,5 @@ export function pad(n: number): string {
  * Returns formatted date-time like "Feb 20, 2026 at 14:30".
  */
 export function formatEventFallbackTitle(date: Date): string {
-  return format(date, "MMM dd, yyyy 'at' HH:mm");
+  return format(date, "MMM dd, yyyy 'at' HH:mm:ss");
 }

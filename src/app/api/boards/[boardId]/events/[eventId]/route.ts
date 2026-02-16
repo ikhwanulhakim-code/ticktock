@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ boardId: string; eventId: string }> }
+  { params }: { params: Promise<{ boardId: string; eventId: string }> },
 ) {
   const { boardId, eventId } = await params;
 
@@ -20,10 +20,7 @@ export async function GET(
     });
 
     if (!event) {
-      return NextResponse.json(
-        { error: "Event not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
     return NextResponse.json(serializeEvent(event));
@@ -31,17 +28,17 @@ export async function GET(
     console.error("[GET /api/boards/[boardId]/events/[eventId]]", error);
     return NextResponse.json(
       { error: "Failed to fetch event" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 /**
- * PUT /api/boards/[boardId]/events/[eventId] — Update an event.
+ * PUT /api/boards/[boardId]/events/[eventId] — Update an event (title, description, color only).
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ boardId: string; eventId: string }> }
+  { params }: { params: Promise<{ boardId: string; eventId: string }> },
 ) {
   const { boardId, eventId } = await params;
 
@@ -52,10 +49,7 @@ export async function PUT(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "Event not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
     const body = await request.json();
@@ -77,7 +71,6 @@ export async function PUT(
       data: {
         title: result.data.title,
         description: result.data.description ?? "",
-        targetDate: new Date(result.data.targetDate),
         color: result.data.color,
       },
     });
@@ -87,7 +80,57 @@ export async function PUT(
     console.error("[PUT /api/boards/[boardId]/events/[eventId]]", error);
     return NextResponse.json(
       { error: "Failed to update event" },
-      { status: 500 }
+      { status: 500 },
+    );
+  }
+}
+
+/**
+ * PATCH /api/boards/[boardId]/events/[eventId] — Restart a countdown.
+ * Resets createdAt and targetDate based on the stored durationMs.
+ */
+export async function PATCH(
+  _request: NextRequest,
+  { params }: { params: Promise<{ boardId: string; eventId: string }> },
+) {
+  const { boardId, eventId } = await params;
+
+  try {
+    const existing = await prisma.event.findFirst({
+      where: { id: eventId, boardId },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    if (existing.timerMode !== "duration") {
+      return NextResponse.json(
+        { error: "Only duration-mode countdowns can be restarted" },
+        { status: 400 },
+      );
+    }
+
+    const durationMs = Number(existing.durationMs);
+
+    const now = new Date();
+    const newTargetDate = new Date(now.getTime() + durationMs);
+
+    const updated = await prisma.event.update({
+      where: { id: eventId },
+      data: {
+        createdAt: now,
+        targetDate: newTargetDate,
+        isCompleted: false,
+      },
+    });
+
+    return NextResponse.json(serializeEvent(updated));
+  } catch (error) {
+    console.error("[PATCH /api/boards/[boardId]/events/[eventId]]", error);
+    return NextResponse.json(
+      { error: "Failed to restart event" },
+      { status: 500 },
     );
   }
 }
@@ -97,7 +140,7 @@ export async function PUT(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ boardId: string; eventId: string }> }
+  { params }: { params: Promise<{ boardId: string; eventId: string }> },
 ) {
   const { boardId, eventId } = await params;
 
@@ -108,10 +151,7 @@ export async function DELETE(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "Event not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
     await prisma.event.delete({ where: { id: eventId } });
@@ -121,7 +161,7 @@ export async function DELETE(
     console.error("[DELETE /api/boards/[boardId]/events/[eventId]]", error);
     return NextResponse.json(
       { error: "Failed to delete event" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

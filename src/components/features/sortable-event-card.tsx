@@ -11,6 +11,7 @@ interface SortableEventCardProps {
   onDelete: (id: string) => void;
   onEdit: (event: TickTockEvent) => void;
   onClick: (event: TickTockEvent) => void;
+  onRestart?: (id: string) => void;
 }
 
 export function SortableEventCard({
@@ -19,6 +20,7 @@ export function SortableEventCard({
   onDelete,
   onEdit,
   onClick,
+  onRestart,
 }: SortableEventCardProps) {
   const {
     attributes,
@@ -31,7 +33,7 @@ export function SortableEventCard({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || "transform 150ms ease-out",
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : undefined,
     touchAction: "none" as const,
@@ -46,7 +48,15 @@ export function SortableEventCard({
       {...attributes}
       {...listeners}
     >
-      <EventCard event={event} isDeleting={isDeleting} onDelete={onDelete} onEdit={onEdit} onClick={onClick} />
+      <EventCard
+        event={event}
+        isDeleting={isDeleting}
+        isDragging={isDragging}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onClick={onClick}
+        onRestart={onRestart}
+      />
     </div>
   );
 }

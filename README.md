@@ -23,20 +23,23 @@ Create, share, and manage countdown timers without the hassle of sign-ups, login
 
 > No feature creep. No premium tiers. Just countdown timers that actually work.
 
-
-
 ### The Basics (that actually matter)
 
 - **Board-based everything** — Organize your countdowns into boards (fancy word for "folders but cooler")
+- **Local-first** — Create boards instantly in your browser, no database needed. Share them when you're ready
 - **Magic links** — Share a URL, that's it. No "invite user" flow, no permission settings, just a link
 - **Live countdowns** — Days, hours, minutes, seconds — all ticking in real-time because who wants stale data
 - **Progress bars** — Visual feedback so you can panic appropriately as deadlines approach
 - **Urgency mode** — Cards pulse red when you have less than 5 minutes left (subtle anxiety feature)
+- **Focus mode** — Fullscreen a single countdown when you need to stare at time passing (dedicated route per event)
 - **Search** — Type to filter, because scrolling is for the birds
-- **Color coding** — 5 colors to choose from (we didn't overthink this)
-- **Focus mode** — Fullscreen a single countdown when you need to stare at time passing
+- **Color coding** — 5 preset colors + custom colors you can save
+- **Timer Modes** — "Duration" (e.g. 20m) or "Target Date" (e.g. Feb 20 at 5 PM)
+- **Restartable** — Quickly reset duration-based timers with one click
 - **Drag & drop** — Reorder things by dragging them around like it's 2010
-- **Share button** — Copy board links via Web Share API or clipboard (finally added this)
+- **Share button** — Copy board links via Web Share API or clipboard
+- **Share local boards** — Promote local boards to server-backed shared boards with one click
+- **Multi-tab sync** — Local board changes sync across browser tabs via BroadcastChannel API
 - **Mobile responsive** — Works on your phone, your tablet, your friend's ancient iPad
 - **Zero friction** — No accounts, no tracking, no analytics, no cookie banners
 
@@ -52,6 +55,7 @@ Create, share, and manage countdown timers without the hassle of sign-ups, login
 ## The Stack (for the nerds)
 
 **Frontend**
+
 - Next.js 16 (App Router + Server Components + React Compiler enabled)
 - React 19 (the one with the new hooks)
 - TypeScript in strict mode (because `any` is a code smell)
@@ -61,12 +65,14 @@ Create, share, and manage countdown timers without the hassle of sign-ups, login
 - TanStack Query (optimistic updates, because instant feedback feels good)
 
 **Backend**
+
 - PostgreSQL (the database you can trust)
 - Prisma 7 (ORM with the best TypeScript integration)
 - Next.js API routes (REST-ish endpoints)
-- Zod validation (no bad data allowed)
+- Zod v4 validation (no bad data allowed)
 
 **Misc**
+
 - @dnd-kit (drag-and-drop without the headache)
 - date-fns v4 (date math that makes sense)
 - Lucide icons (pretty SVGs)
@@ -79,61 +85,21 @@ Create, share, and manage countdown timers without the hassle of sign-ups, login
 
 ```
 src/
-├── app/
-│   ├── layout.tsx               # Root layout (fonts, metadata, providers)
-│   ├── page.tsx                 # Landing page (server component, client islands)
-│   ├── about/page.tsx           # About page (the Discord "seminar" story)
-│   ├── how-it-works/page.tsx    # How-to + FAQ (with JSON-LD for rich results)
-│   ├── robots.ts                # robots.txt (disallows /api/ and /b/)
-│   ├── sitemap.ts               # Sitemap (3 pages: /, /about, /how-it-works)
-│   ├── manifest.ts              # PWA manifest
-│   ├── opengraph-image.tsx      # Dynamic OG image (edge runtime)
-│   ├── twitter-image.tsx        # Twitter card image
-│   ├── b/[slug]/
-│   │   ├── layout.tsx           # Board layout (noindex metadata)
-│   │   └── page.tsx             # Board dashboard + focus mode
-│   └── api/boards/
-│       ├── route.ts             # POST /api/boards (create board)
-│       └── [boardId]/events/
-│           ├── route.ts         # GET | POST /api/boards/:id/events
-│           ├── [eventId]/route.ts   # PUT | DELETE /api/boards/:id/events/:eid
-│           └── reorder/route.ts     # PUT /api/boards/:id/events/reorder
+├── app/                  # Next.js routes + SEO files
+│   ├── b/[slug]/         # Server board dashboard (+ focus/[eventId] sub-route)
+│   ├── local/[id]/       # Local board dashboard (+ focus/[eventId] sub-route)
+│   ├── about/            # About page
+│   ├── how-it-works/     # How-to + FAQ
+│   └── api/              # REST endpoints (boards, events, share, sync)
 ├── components/
-│   ├── ui/                      # shadcn primitives (Button, Dialog, Card, etc.)
-│   ├── shared/
-│   │   ├── page-header.tsx      # Header for landing/about/how-it-works
-│   │   ├── page-footer.tsx      # Footer with links
-│   │   ├── header.tsx           # Board page header (with share button)
-│   │   ├── search-bar.tsx       # Search input with clear button
-│   │   └── error-boundary.tsx   # React error boundary
-│   └── features/
-│       ├── event-card.tsx       # Single countdown card
-│       ├── event-list.tsx       # List with drag-and-drop
-│       ├── add-event-modal.tsx  # Create/edit event modal
-│       ├── focus-timer.tsx      # Fullscreen countdown view
-│       ├── sort-toggle.tsx      # Urgency vs custom sort
-│       ├── share-button.tsx     # Web Share API + clipboard fallback
-│       ├── email-link.tsx       # Email button (copies to clipboard)
-│       ├── hero-animation.tsx   # Framer Motion wrapper
-│       └── create-board-button.tsx
-├── hooks/
-│   ├── use-events.ts            # TanStack Query CRUD + optimistic updates
-│   ├── use-timer.ts             # Countdown logic (SSR-safe)
-│   ├── use-ticker.tsx           # Global interval context
-│   └── use-sort-preference.ts   # localStorage for sort mode
-├── services/
-│   ├── event-service.ts         # API client for events (fetch wrapper)
-│   ├── board-service.ts         # API client for boards
-│   └── storage.ts               # localStorage helpers (recent boards, sort prefs)
-├── lib/
-│   ├── utils.ts                 # cn() helper (clsx + twMerge)
-│   ├── date-utils.ts            # Date formatting with date-fns
-│   ├── serialize.ts             # Prisma Date → ISO string
-│   └── prisma.ts                # Prisma client singleton with pg pool
-├── types/
-│   └── index.ts                 # All TypeScript types + Zod schemas
-└── generated/prisma/            # Auto-generated (never edit)
-    └── client.ts
+│   ├── ui/               # shadcn primitives (Button, Dialog, Card, etc.)
+│   ├── shared/           # Layout, header, search, share button, error boundary
+│   └── features/         # Domain components (event cards, modals, sort, focus timer)
+├── hooks/                # TanStack Query wrappers, timer, sort, local board hooks
+├── services/             # API clients, localStorage CRUD, share flow, multi-tab sync
+├── lib/                  # Pure utilities (cn, date helpers, serialization, Prisma client)
+├── types/                # All TypeScript types + Zod schemas
+└── generated/prisma/     # Auto-generated Prisma client (never edit)
 ```
 
 ---
@@ -141,6 +107,7 @@ src/
 ## Getting Started (the speedrun version)
 
 **What you need:**
+
 - Node.js 18+ (if you're still on 16, it's time to update)
 - PostgreSQL database ([Neon](https://neon.tech) or [Supabase](https://supabase.com) work great if you don't want to run local)
 
@@ -180,7 +147,7 @@ npm run lint                # Check for code crimes
 
 ## Architecture (or "how it all fits together")
 
-**The flow:**
+**The flow (server boards):**
 
 ```
 User clicks button
@@ -204,29 +171,50 @@ TanStack Query updates cache (optimistically if needed)
 React re-renders with new data
 ```
 
+**The flow (local boards):**
+
+```
+User clicks button
+  ↓
+React component calls TanStack Query hook (use-local-events.ts)
+  ↓
+Hook calls local-storage-service.ts
+  ↓
+Service reads/writes localStorage directly
+  ↓
+Custom event emitted → query invalidated
+  ↓
+React re-renders with new data
+```
+
 **Design decisions (the opinionated parts):**
 
-- **Server vs Client** — Landing/about/how-it-works are server components. Board page is client. Logo/nav/footer are server. Interactive bits are client islands.
+- **Server vs Client** — Landing/about/how-it-works are server components. Board pages are client. Logo/nav/footer are server. Interactive bits are client islands.
+- **Local-first** — Boards can be created entirely in localStorage. Users can share them to the server when needed, migrating all data via the `/api/share` endpoint.
 - **Data fetching** — TanStack Query everywhere. Optimistic updates for drag-and-drop. No `useEffect` + `useState` nonsense.
 - **Styling** — Tailwind utility classes. No CSS modules, no styled-components, no drama.
 - **Timers** — Single `setInterval` in a context provider broadcasts to all countdown hooks. Individual timers derive their state via `useMemo`. No 50 intervals running at once.
-- **localStorage** — Only for recent boards and sort preferences. Event data lives in PostgreSQL.
-- **Validation** — Zod `.safeParse()` in API routes. Errors returned as `{errors: {field: message}}`.
-- **Serialization** — Prisma returns `Date` objects. We convert to ISO strings before sending JSON (via `serializeEvent()` helper).
+- **localStorage** — Recent boards, sort preferences, custom colors, and full local board data. Server event data lives in PostgreSQL.
+- **Validation** — Zod v4 `.safeParse()` in API routes. Errors returned as `{errors: {field: message}}`.
+- **Serialization** — Prisma returns `Date` objects. We convert to ISO strings before sending JSON (via `serializeEvent()` and `serializeBoard()` helpers). `deserializeLocalData()` safely parses localStorage JSON.
+- **Multi-tab sync** — BroadcastChannel API keeps local boards in sync across tabs. Falls back to StorageEvent for older browsers.
 
 ---
 
 ## Database Schema (the two-table wonder)
 
 ```
-Board (id, createdAt, updatedAt)
+Board (id, createdAt, updatedAt, isShared, sharedAt)
   ↓ 1:N
-Event (id, title, description, targetDate, color, isCompleted, order, boardId)
+Event (id, title, description, targetDate, color, durationMs, timerMode, isCompleted, order, boardId)
 ```
 
 That's it. No users table. No sessions. No auth. Privacy through simplicity.
 
-**Cascade delete:** When you delete a board, all its events vanish (via `onDelete: Cascade`).
+- **`isShared`** — Tracks whether a board was created via the share flow (vs direct API creation)
+- **`sharedAt`** — Timestamp of when the board was first shared
+- **Cascade delete:** When you delete a board, all its events vanish (via `onDelete: Cascade`)
+- **Indexes:** `Board` has `[isShared, createdAt]`, `Event` has `[boardId, order]`
 
 ---
 

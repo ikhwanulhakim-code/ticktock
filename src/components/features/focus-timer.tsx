@@ -1,26 +1,42 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, EyeOff } from "lucide-react";
+import {
+  X,
+  Maximize2,
+  Minimize2,
+  Share2,
+  RotateCcw,
+  Timer,
+  CalendarDays,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ShareButton } from "@/components/shared/share-button";
 import { useTimer } from "@/hooks/use-timer";
-import { pad, formatDateTime, formatEventFallbackTitle } from "@/lib/date-utils";
+import { pad, formatDateTime, msToTimeParts } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import type { TickTockEvent } from "@/types";
 
 interface FocusTimerProps {
   event: TickTockEvent;
-  onBack: () => void;
+  onClose: () => void;
+  onShare?: () => void;
+  onRestart?: (id: string) => void;
 }
 
-export function FocusTimer({ event, onBack }: FocusTimerProps) {
+export function FocusTimer({
+  event,
+  onClose,
+  onShare,
+  onRestart,
+}: FocusTimerProps) {
   const timer = useTimer(event.targetDate, event.createdAt);
   const [isImmersive, setIsImmersive] = useState(false);
+  const canRestart = event.timerMode === "duration";
 
-  const displayTitle = event.title.trim() || formatEventFallbackTitle(new Date(event.targetDate));
+  const displayTitle = event.title;
 
   // Escape key to exit focus mode or immersive mode
   const handleKeyDown = useCallback(
@@ -29,11 +45,11 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
         if (isImmersive) {
           setIsImmersive(false);
         } else {
-          onBack();
+          onClose();
         }
       }
     },
-    [onBack, isImmersive]
+    [onClose, isImmersive],
   );
 
   useEffect(() => {
@@ -62,9 +78,14 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
               transition={{ duration: 0.2 }}
               className="absolute left-4 top-4"
             >
-              <Button variant="ghost" size="sm" onClick={onBack} aria-label="Exit focus mode">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                aria-label="Exit focus mode"
+              >
+                <X className="mr-2 h-4 w-4" />
+                Close
               </Button>
             </motion.div>
 
@@ -75,13 +96,24 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
               transition={{ duration: 0.2 }}
               className="absolute right-4 top-4 flex gap-2"
             >
+              {canRestart && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRestart?.(event.id)}
+                  aria-label="Restart countdown"
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Restart
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsImmersive(true)}
                 aria-label="Enter immersive mode"
               >
-                <EyeOff className="h-4 w-4" />
+                <Maximize2 className="h-4 w-4" />
               </Button>
               <ShareButton
                 title={`${displayTitle} — TickTock`}
@@ -95,40 +127,30 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
         )}
       </AnimatePresence>
 
-      {/* Color accent dot */}
-      <AnimatePresence>
-        {!isImmersive && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.2 }}
-            className="mb-6 h-3 w-3 rounded-full"
-            style={{ backgroundColor: event.color }}
-          />
-        )}
-      </AnimatePresence>
-
       {/* Title and description */}
       <AnimatePresence>
         {!isImmersive && (
           <>
-            <motion.h2
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="mb-2 text-center text-2xl font-bold px-4"
-            >
-              {displayTitle}
-            </motion.h2>
+            {displayTitle && (
+              <motion.h2
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="mb-2 text-center text-2xl font-bold px-4"
+                style={{ color: event.color }}
+              >
+                {displayTitle}
+              </motion.h2>
+            )}
             {event.description && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="mb-2 max-w-md wrap-break-word text-center text-sm text-muted-foreground/80 px-4"
+                className="mb-2 max-w-md wrap-break-word text-center text-sm px-4"
+                style={{ color: event.color, opacity: 0.7 }}
               >
                 {event.description}
               </motion.p>
@@ -138,11 +160,34 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="mb-10 text-sm text-muted-foreground"
+              className="mb-10 flex items-center gap-1.5 text-sm"
+              style={{ color: event.color, opacity: 0.7 }}
             >
-              {timer.isExpired
-                ? "This countdown has expired"
-                : `Target: ${formatDateTime(event.targetDate)}`}
+              {timer.isExpired ? (
+                "This countdown has expired"
+              ) : event.timerMode === "duration" ? (
+                <>
+                  <Timer className="h-3.5 w-3.5" />
+                  <span>
+                    Duration ·{" "}
+                    {(() => {
+                      const p = msToTimeParts(event.durationMs);
+                      const parts: string[] = [];
+                      if (p.days > 0) parts.push(`${p.days}d`);
+                      if (p.hours > 0) parts.push(`${p.hours}h`);
+                      if (p.minutes > 0) parts.push(`${p.minutes}m`);
+                      if (p.seconds > 0 || parts.length === 0)
+                        parts.push(`${p.seconds}s`);
+                      return parts.join(" ");
+                    })()}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  <span>Target: {formatDateTime(event.targetDate)}</span>
+                </>
+              )}
             </motion.p>
           </>
         )}
@@ -152,22 +197,25 @@ export function FocusTimer({ event, onBack }: FocusTimerProps) {
       <div
         className={cn(
           "font-mono text-7xl font-bold tracking-wider tabular-nums sm:text-8xl md:text-9xl",
-          isImmersive && "cursor-pointer"
+          isImmersive && "cursor-pointer",
         )}
         onClick={() => isImmersive && setIsImmersive(false)}
         role={isImmersive ? "button" : undefined}
         aria-label={isImmersive ? "Exit immersive mode" : undefined}
       >
         {timer.isExpired ? (
-          <span className="text-red-500">00:00:00</span>
+          <span style={{ color: event.color }}>00:00:00</span>
         ) : (
           <>
             {timer.days > 0 && (
-              <div className="mb-2 text-center text-3xl text-muted-foreground sm:text-4xl">
+              <div
+                className="mb-2 text-center text-3xl sm:text-4xl"
+                style={{ color: event.color, opacity: 0.7 }}
+              >
                 {timer.days} day{timer.days !== 1 ? "s" : ""}
               </div>
             )}
-            <span>
+            <span style={{ color: event.color }}>
               {pad(timer.hours)}:{pad(timer.minutes)}:{pad(timer.seconds)}
             </span>
           </>
