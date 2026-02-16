@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { Header } from "@/components/shared/header";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
+import { BoardNotFound } from "@/components/shared/board-not-found";
 import { SearchBar } from "@/components/shared/search-bar";
 import { EventList } from "@/components/features/event-list";
 import { SortToggle, SortHint } from "@/components/features/sort-toggle";
@@ -46,11 +47,17 @@ export default function LocalBoardPage() {
   const clearHighlight = useCallback(() => setNewlyCreatedId(null), []);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
+  const [isNotFound, setIsNotFound] = useState(false);
+
+  const { data: events = [] } = useLocalEvents(boardId);
+  const deleteEvent = useDeleteLocalEvent(boardId);
+  const reorderEvents = useReorderLocalEvents(boardId);
+  const { sortMode, setSortMode } = useSortPreference(boardId);
+
   // Validate local board ID
   useEffect(() => {
     if (!boardId.startsWith("local_")) {
-      // Invalid local board ID
-      router.replace("/");
+      setIsNotFound(true);
       return;
     }
 
@@ -65,22 +72,24 @@ export default function LocalBoardPage() {
     // Check if board exists
     const board = getLocalBoard(boardId);
     if (!board) {
-      // Board not found — redirect to home
-      toast.error("Board not found");
-      router.replace("/");
+      setIsNotFound(true);
       return;
     }
   }, [boardId, router]);
 
-  const { data: events = [] } = useLocalEvents(boardId);
-  const deleteEvent = useDeleteLocalEvent(boardId);
-  const reorderEvents = useReorderLocalEvents(boardId);
-  const { sortMode, setSortMode } = useSortPreference(boardId);
-
   // Track this board visit
   useEffect(() => {
+    // Only track if valid
+    if (!boardId.startsWith("local_")) return;
+    if (getSharedIdFromLocal(boardId)) return;
+    if (!getLocalBoard(boardId)) return;
+
     trackBoardVisit(boardId, true); // isLocal = true
   }, [boardId]);
+
+  if (isNotFound) {
+    return <BoardNotFound />;
+  }
 
   function handleDelete(eventId: string) {
     const eventToDelete = events.find((e) => e.id === eventId);

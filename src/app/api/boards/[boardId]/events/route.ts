@@ -10,16 +10,20 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ boardId: string }> }
+  { params }: { params: Promise<{ boardId: string }> },
 ) {
   const { boardId } = await params;
 
   try {
-    // Fetch board with updatedAt for sync header
+    // Verify board exists first
     const board = await prisma.board.findUnique({
       where: { id: boardId },
       select: { updatedAt: true },
     });
+
+    if (!board) {
+      return NextResponse.json({ error: "Board not found" }, { status: 404 });
+    }
 
     const events = await prisma.event.findMany({
       where: { boardId },
@@ -30,21 +34,19 @@ export async function GET(
     // Prevent caching so mutations (create/update/delete) are immediately reflected
     response.headers.set(
       "Cache-Control",
-      "no-cache, no-store, must-revalidate"
+      "no-cache, no-store, must-revalidate",
     );
     // Add last modified timestamp for sync
-    if (board) {
-      response.headers.set(
-        "X-Last-Modified",
-        board.updatedAt.getTime().toString()
-      );
-    }
+    response.headers.set(
+      "X-Last-Modified",
+      board.updatedAt.getTime().toString(),
+    );
     return response;
   } catch (error) {
     console.error("[GET /api/boards/[boardId]/events]", error);
     return NextResponse.json(
       { error: "Failed to fetch events" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -54,7 +56,7 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ boardId: string }> }
+  { params }: { params: Promise<{ boardId: string }> },
 ) {
   const { boardId } = await params;
 
@@ -80,16 +82,13 @@ export async function POST(
     });
 
     if (!board) {
-      return NextResponse.json(
-        { error: "Board not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Board not found" }, { status: 404 });
     }
 
     if (!board.isShared) {
       return NextResponse.json(
         { error: "Board is not shared. Share your board first." },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -116,7 +115,7 @@ export async function POST(
     console.error("[POST /api/boards/[boardId]/events]", error);
     return NextResponse.json(
       { error: "Failed to create event" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

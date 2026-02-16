@@ -1,15 +1,26 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useDeferredValue } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useDeferredValue,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { Header } from "@/components/shared/header";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
+import { BoardNotFound } from "@/components/shared/board-not-found";
 import { SearchBar } from "@/components/shared/search-bar";
 import { EventList } from "@/components/features/event-list";
 import { SortToggle, SortHint } from "@/components/features/sort-toggle";
-import { useEvents, useDeleteEvent, useReorderEvents } from "@/hooks/use-events";
+import {
+  useEvents,
+  useDeleteEvent,
+  useReorderEvents,
+} from "@/hooks/use-events";
 import { useSortPreference } from "@/hooks/use-sort-preference";
 import { TickerProvider } from "@/hooks/use-ticker";
 import { trackBoardVisit } from "@/services/storage";
@@ -17,8 +28,11 @@ import type { TickTockEvent } from "@/types";
 
 // Lazy-load heavy components — only fetched when needed
 const EventModal = dynamic(
-  () => import("@/components/features/add-event-modal").then((m) => ({ default: m.EventModal })),
-  { ssr: false }
+  () =>
+    import("@/components/features/add-event-modal").then((m) => ({
+      default: m.EventModal,
+    })),
+  { ssr: false },
 );
 
 export default function BoardPage() {
@@ -34,31 +48,46 @@ export default function BoardPage() {
   const clearHighlight = useCallback(() => setNewlyCreatedId(null), []);
 
   const { data: events = [], isLoading, error } = useEvents(boardId);
+  const [isNotFound, setIsNotFound] = useState(false);
 
-  // If the board slug is not a valid UUID, redirect to a new board
-  useEffect(() => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(boardId)) {
-      // Invalid slug — create a new board and redirect
-      import("@/services/board-service").then(({ boardService }) => {
-        boardService.create().then((board) => {
-          router.replace(`/b/${board.id}`);
-        }).catch(() => {
-          router.replace("/");
-        });
-      });
-    }
-  }, [boardId, router]);
   const deleteEvent = useDeleteEvent(boardId);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const pendingDeletesRef = useRef<Set<string>>(new Set());
   const reorderEvents = useReorderEvents(boardId);
   const { sortMode, setSortMode } = useSortPreference(boardId);
 
+  // If the board slug is not a valid UUID, show not found
+  useEffect(() => {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(boardId)) {
+      setIsNotFound(true);
+    }
+  }, [boardId]);
+
+  // Check for API 404 error
+  useEffect(() => {
+    const apiError = error as Error & { status?: number };
+    if (apiError?.status === 404) {
+      setIsNotFound(true);
+    }
+  }, [error]);
+
   // Track this board visit for the landing page's "Recent Boards"
   useEffect(() => {
+    if (isLoading) return;
+    if (error) return;
+
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(boardId)) return;
+
     trackBoardVisit(boardId);
-  }, [boardId]);
+  }, [boardId, isLoading, error]);
+
+  if (isNotFound) {
+    return <BoardNotFound />;
+  }
 
   function handleDelete(id: string) {
     const eventToDelete = events.find((e) => e.id === id);
@@ -136,54 +165,57 @@ export default function BoardPage() {
   return (
     <TickerProvider>
       <ErrorBoundary>
-      <div className="min-h-screen bg-background">
-      <Header 
-        onAddClick={() => { setEditEvent(null); setModalOpen(true); }}
-        boardId={boardId}
-        isLocal={false}
-      />
+        <div className="min-h-screen bg-background">
+          <Header
+            onAddClick={() => {
+              setEditEvent(null);
+              setModalOpen(true);
+            }}
+            boardId={boardId}
+            isLocal={false}
+          />
 
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
-        {/* Toolbar: search + sort toggle — only show when there are events */}
-        {events.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <div className="flex-1 min-w-0">
-                <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
+            {/* Toolbar: search + sort toggle — only show when there are events */}
+            {events.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <div className="flex-1 min-w-0">
+                    <SearchBar value={searchQuery} onChange={setSearchQuery} />
+                  </div>
+                  <SortToggle value={sortMode} onChange={setSortMode} />
+                </div>
+                <SortHint sortMode={sortMode} />
               </div>
-              <SortToggle value={sortMode} onChange={setSortMode} />
-            </div>
-            <SortHint sortMode={sortMode} />
-          </div>
-        )}
+            )}
 
-        {/* Event list */}
-        <EventList
-          events={events}
-          isLoading={isLoading}
-          searchQuery={deferredSearchQuery}
-          sortMode={sortMode}
-          deletingIds={deletingIds}
-          highlightEventId={newlyCreatedId}
-          onDelete={handleDelete}
-          onEdit={handleEdit}
-          onSelect={handleFocusEvent}
-          onReorder={handleReorder}
-          onSortModeChange={setSortMode}
-          onHighlightComplete={clearHighlight}
-        />
-      </main>
+            {/* Event list */}
+            <EventList
+              events={events}
+              isLoading={isLoading}
+              searchQuery={deferredSearchQuery}
+              sortMode={sortMode}
+              deletingIds={deletingIds}
+              highlightEventId={newlyCreatedId}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              onSelect={handleFocusEvent}
+              onReorder={handleReorder}
+              onSortModeChange={setSortMode}
+              onHighlightComplete={clearHighlight}
+            />
+          </main>
 
-      {/* Event modal (create / edit) */}
-      <EventModal
-        open={modalOpen}
-        onOpenChange={handleModalOpenChange}
-        editEvent={editEvent}
-        boardId={boardId}
-        onEventCreated={setNewlyCreatedId}
-      />
-    </div>
-    </ErrorBoundary>
+          {/* Event modal (create / edit) */}
+          <EventModal
+            open={modalOpen}
+            onOpenChange={handleModalOpenChange}
+            editEvent={editEvent}
+            boardId={boardId}
+            onEventCreated={setNewlyCreatedId}
+          />
+        </div>
+      </ErrorBoundary>
     </TickerProvider>
   );
 }
