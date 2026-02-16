@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { eventService } from "@/services/event-service";
 import type { CreateEventInput, TickTockEvent } from "@/types";
@@ -19,6 +15,11 @@ export function useEvents(boardId: string) {
     queryKey: eventsKey(boardId),
     queryFn: ({ signal }) => eventService.getAll(boardId, signal),
     enabled: !!boardId,
+    retry: (failureCount, error: Error & { status?: number }) => {
+      // Don't retry on 404s
+      if (error?.status === 404) return false;
+      return failureCount < 3;
+    },
   });
 }
 
@@ -38,7 +39,9 @@ export function useCreateEvent(boardId: string) {
     // Optimistically add the event BEFORE the API call
     onMutate: async (input: CreateEventInput) => {
       await queryClient.cancelQueries({ queryKey: eventsKey(boardId) });
-      const previous = queryClient.getQueryData<TickTockEvent[]>(eventsKey(boardId));
+      const previous = queryClient.getQueryData<TickTockEvent[]>(
+        eventsKey(boardId),
+      );
 
       const tempId = crypto.randomUUID();
 
@@ -50,12 +53,12 @@ export function useCreateEvent(boardId: string) {
         color: input.color,
         createdAt: new Date().toISOString(),
         isCompleted: false,
-        order: (previous?.length ?? 0),
+        order: previous?.length ?? 0,
         boardId,
       };
 
       queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
-        old ? [...old, optimisticEvent] : [optimisticEvent]
+        old ? [...old, optimisticEvent] : [optimisticEvent],
       );
 
       return { previous, tempId };
@@ -67,7 +70,7 @@ export function useCreateEvent(boardId: string) {
         queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
           old
             ? old.map((e) => (e.id === context.tempId ? serverEvent : e))
-            : [serverEvent]
+            : [serverEvent],
         );
       }
     },
@@ -93,7 +96,9 @@ export function useUpdateEvent(boardId: string) {
       data,
     }: {
       id: string;
-      data: Partial<Omit<TickTockEvent, "id" | "createdAt" | "order" | "boardId">>;
+      data: Partial<
+        Omit<TickTockEvent, "id" | "createdAt" | "order" | "boardId">
+      >;
     }) => eventService.update(boardId, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
@@ -112,7 +117,7 @@ export function useDeleteEvent(boardId: string) {
     onSuccess: (_data, deletedId) => {
       // Optimistically remove the event from cache so the card disappears immediately
       queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
-        old ? old.filter((e) => e.id !== deletedId) : []
+        old ? old.filter((e) => e.id !== deletedId) : [],
       );
       // Also invalidate to ensure cache stays in sync with the server
       queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
@@ -129,7 +134,8 @@ export function useReorderEvents(boardId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (orderedIds: string[]) => eventService.reorder(boardId, orderedIds),
+    mutationFn: (orderedIds: string[]) =>
+      eventService.reorder(boardId, orderedIds),
 
     // Optimistically reorder the cache BEFORE the API call
     onMutate: async (orderedIds: string[]) => {
@@ -137,13 +143,15 @@ export function useReorderEvents(boardId: string) {
       await queryClient.cancelQueries({ queryKey: eventsKey(boardId) });
 
       // Snapshot the previous value for rollback
-      const previous = queryClient.getQueryData<TickTockEvent[]>(eventsKey(boardId));
+      const previous = queryClient.getQueryData<TickTockEvent[]>(
+        eventsKey(boardId),
+      );
 
       // Optimistically update the cache with the new order
       if (previous) {
         const orderMap = new Map(orderedIds.map((id, idx) => [id, idx]));
         const optimistic = [...previous].sort(
-          (a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0)
+          (a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
         );
         queryClient.setQueryData(eventsKey(boardId), optimistic);
       }

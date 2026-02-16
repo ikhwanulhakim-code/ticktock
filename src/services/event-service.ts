@@ -8,23 +8,39 @@ import type { TickTockEvent, CreateEventInput } from "@/types";
  * Methods that support cancellation accept an optional `AbortSignal`.
  */
 export const eventService = {
-  async getAll(boardId: string, signal?: AbortSignal): Promise<TickTockEvent[]> {
+  async getAll(
+    boardId: string,
+    signal?: AbortSignal,
+  ): Promise<TickTockEvent[]> {
     const res = await fetch(`/api/boards/${boardId}/events`, {
       signal,
       cache: "no-store",
     });
-    if (!res.ok) throw new Error("Failed to fetch events");
+    if (!res.ok) {
+      const error = new Error("Failed to fetch events") as Error & {
+        status: number;
+      };
+      error.status = res.status;
+      throw error;
+    }
     return res.json();
   },
 
-  async getById(boardId: string, id: string, signal?: AbortSignal): Promise<TickTockEvent | null> {
+  async getById(
+    boardId: string,
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<TickTockEvent | null> {
     const res = await fetch(`/api/boards/${boardId}/events/${id}`, { signal });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("Failed to fetch event");
     return res.json();
   },
 
-  async create(boardId: string, input: CreateEventInput): Promise<TickTockEvent> {
+  async create(
+    boardId: string,
+    input: CreateEventInput,
+  ): Promise<TickTockEvent> {
     const res = await fetch(`/api/boards/${boardId}/events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -33,7 +49,9 @@ export const eventService = {
 
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.errors ? JSON.stringify(error.errors) : "Failed to create event");
+      throw new Error(
+        error.errors ? JSON.stringify(error.errors) : "Failed to create event",
+      );
     }
 
     return res.json();
@@ -42,7 +60,9 @@ export const eventService = {
   async update(
     boardId: string,
     id: string,
-    data: Partial<Omit<TickTockEvent, "id" | "createdAt" | "order" | "boardId">>
+    data: Partial<
+      Omit<TickTockEvent, "id" | "createdAt" | "order" | "boardId">
+    >,
   ): Promise<TickTockEvent> {
     const res = await fetch(`/api/boards/${boardId}/events/${id}`, {
       method: "PUT",
@@ -52,7 +72,9 @@ export const eventService = {
 
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.errors ? JSON.stringify(error.errors) : "Failed to update event");
+      throw new Error(
+        error.errors ? JSON.stringify(error.errors) : "Failed to update event",
+      );
     }
 
     return res.json();
@@ -69,7 +91,10 @@ export const eventService = {
   /**
    * Persist a new ordering of event IDs.
    */
-  async reorder(boardId: string, orderedIds: string[]): Promise<TickTockEvent[]> {
+  async reorder(
+    boardId: string,
+    orderedIds: string[],
+  ): Promise<TickTockEvent[]> {
     const res = await fetch(`/api/boards/${boardId}/events/reorder`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
