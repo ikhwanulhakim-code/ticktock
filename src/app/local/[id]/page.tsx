@@ -14,6 +14,7 @@ import {
   useLocalEvents,
   useDeleteLocalEvent,
   useReorderLocalEvents,
+  useRestartLocalEvent,
 } from "@/hooks/use-local-events";
 import { useSortPreference } from "@/hooks/use-sort-preference";
 import { TickerProvider } from "@/hooks/use-ticker";
@@ -52,6 +53,7 @@ export default function LocalBoardPage() {
   const { data: events = [] } = useLocalEvents(boardId);
   const deleteEvent = useDeleteLocalEvent(boardId);
   const reorderEvents = useReorderLocalEvents(boardId);
+  const restartEvent = useRestartLocalEvent(boardId);
   const { sortMode, setSortMode } = useSortPreference(boardId);
 
   // Validate local board ID
@@ -158,6 +160,10 @@ export default function LocalBoardPage() {
     router.push(`/local/${boardId}/focus/${event.id}`);
   }
 
+  function handleRestart(id: string) {
+    restartEvent.mutate(id);
+  }
+
   return (
     <LocalBoardProvider boardId={boardId} isLocal={true} syncStatus="local">
       <TickerProvider>
@@ -203,6 +209,7 @@ export default function LocalBoardPage() {
                 onReorder={handleReorder}
                 onSortModeChange={setSortMode}
                 onHighlightComplete={clearHighlight}
+                onRestart={handleRestart}
               />
             </main>
 

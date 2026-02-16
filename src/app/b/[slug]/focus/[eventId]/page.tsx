@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { FocusTimer } from "@/components/features/focus-timer";
 import { TickerProvider } from "@/hooks/use-ticker";
-import { useEvents } from "@/hooks/use-events";
+import { useEvents, useRestartEvent } from "@/hooks/use-events";
 import { Loader2 } from "lucide-react";
 
 export default function FocusTimerPage() {
@@ -13,10 +13,15 @@ export default function FocusTimerPage() {
   const boardId = slug;
 
   const { data: events = [], isLoading } = useEvents(boardId);
+  const restartEvent = useRestartEvent(boardId);
   const event = events.find((e) => e.id === eventId);
 
-  function handleBack() {
+  function handleClose() {
     router.push(`/b/${boardId}`);
+  }
+
+  function handleRestart(id: string) {
+    restartEvent.mutate(id);
   }
 
   // Loading state
@@ -34,7 +39,7 @@ export default function FocusTimerPage() {
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background">
         <p className="text-lg text-muted-foreground">Event not found</p>
         <button
-          onClick={handleBack}
+          onClick={handleClose}
           className="text-sm text-primary hover:underline"
         >
           Back to board
@@ -46,7 +51,12 @@ export default function FocusTimerPage() {
   return (
     <TickerProvider>
       <AnimatePresence>
-        <FocusTimer key={event.id} event={event} onBack={handleBack} />
+        <FocusTimer
+          key={event.id}
+          event={event}
+          onClose={handleClose}
+          onRestart={handleRestart}
+        />
       </AnimatePresence>
     </TickerProvider>
   );
