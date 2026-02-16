@@ -6,6 +6,7 @@ type ChangeType =
   | "event_created"
   | "event_updated"
   | "event_deleted"
+  | "event_restarted"
   | "events_reordered"
   | "board_shared";
 
@@ -64,7 +65,7 @@ function getOrCreateChannel(boardId: string): BroadcastChannel | null {
 export function broadcastLocalChange(
   boardId: string,
   type: ChangeType,
-  payload?: unknown
+  payload?: unknown,
 ): void {
   const channel = getOrCreateChannel(boardId);
   if (!channel) {
@@ -89,7 +90,7 @@ export function broadcastLocalChange(
 
 export function listenToLocalChanges(
   boardId: string,
-  callback: (message: BroadcastMessage) => void
+  callback: (message: BroadcastMessage) => void,
 ): () => void {
   if (!isBroadcastChannelSupported()) {
     // Fallback to storage event listener
@@ -145,7 +146,7 @@ const BROADCAST_KEY_PREFIX = "ticktock_broadcast_";
 function fallbackToStorageEvent(
   boardId: string,
   type: ChangeType,
-  payload?: unknown
+  payload?: unknown,
 ): void {
   if (typeof window === "undefined") return;
 
@@ -168,12 +169,12 @@ function fallbackToStorageEvent(
 
 function fallbackStorageEventListener(
   boardId: string,
-  callback: (message: BroadcastMessage) => void
+  callback: (message: BroadcastMessage) => void,
 ): () => void {
   if (typeof window === "undefined") return () => {};
 
   const key = `${BROADCAST_KEY_PREFIX}${boardId}`;
-  
+
   const handler = (event: StorageEvent) => {
     if (event.key === key && event.newValue) {
       try {
