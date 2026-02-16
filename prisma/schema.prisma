@@ -25,6 +25,8 @@ model Event {
   targetDate  DateTime
   createdAt   DateTime @default(now())
   color       String
+  durationMs  BigInt   @default(0)
+  timerMode   String   @default("duration")
   isCompleted Boolean  @default(false)
   order       Int      @default(0)
   boardId     String
