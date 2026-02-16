@@ -16,12 +16,14 @@ interface EventCardProps {
   onClick: (event: TickTockEvent) => void;
 }
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000;
-
-export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: EventCardProps) {
+export function EventCard({
+  event,
+  isDeleting,
+  onDelete,
+  onEdit,
+  onClick,
+}: EventCardProps) {
   const timer = useTimer(event.targetDate, event.createdAt);
-
-  const isUrgent = !timer.isExpired && timer.totalRemainingMs < FIVE_MINUTES_MS;
 
   return (
     <motion.div
@@ -29,10 +31,7 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-      className={cn(
-        "group relative max-w-full cursor-pointer overflow-hidden rounded-xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-md",
-        isUrgent && "animate-pulse border-red-500/60 bg-red-50/50"
-      )}
+      className="group relative max-w-full cursor-pointer overflow-hidden rounded-xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-md"
       style={{ borderLeftColor: event.color, borderLeftWidth: 4 }}
       onClick={() => onClick(event)}
     >
@@ -50,7 +49,8 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold leading-tight">
-            {event.title.trim() || formatEventFallbackTitle(new Date(event.targetDate))}
+            {event.title.trim() ||
+              formatEventFallbackTitle(new Date(event.targetDate))}
           </h3>
           {event.description && (
             <p className="mt-0.5 truncate text-xs text-muted-foreground/80">
@@ -66,7 +66,7 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
               onEdit(event);
             }}
             className="rounded-md p-1.5 text-muted-foreground opacity-70 transition-all hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100"
-            aria-label={`Edit ${event.title.trim() || 'event'}`}
+            aria-label={`Edit ${event.title.trim() || "event"}`}
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -78,9 +78,11 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
             disabled={isDeleting}
             className={cn(
               "rounded-md p-1.5 text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive",
-              isDeleting ? "opacity-50" : "opacity-70 md:opacity-0 md:group-hover:opacity-100"
+              isDeleting
+                ? "opacity-50"
+                : "opacity-70 md:opacity-0 md:group-hover:opacity-100",
             )}
-            aria-label={`Delete ${event.title.trim() || 'event'}`}
+            aria-label={`Delete ${event.title.trim() || "event"}`}
           >
             {isDeleting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -102,7 +104,7 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
                 {timer.days}d{" "}
               </span>
             )}
-            <span>
+            <span style={{ color: event.color }}>
               {pad(timer.hours)}:{pad(timer.minutes)}:{pad(timer.seconds)}
             </span>
           </>
@@ -116,9 +118,7 @@ export function EventCard({ event, isDeleting, onDelete, onEdit, onClick }: Even
           className="h-1.5"
           style={
             {
-              "--progress-foreground": isUrgent
-                ? "var(--destructive)"
-                : event.color,
+              "--progress-foreground": event.color,
             } as React.CSSProperties
           }
         />
