@@ -10,6 +10,7 @@ import {
   updateLocalEvent,
   deleteLocalEvent,
   reorderLocalEvents,
+  restartLocalEvent,
   subscribeToChanges,
 } from "@/services/local-storage-service";
 import { broadcastLocalChange } from "@/services/broadcast-service";
@@ -20,20 +21,25 @@ import { broadcastLocalChange } from "@/services/broadcast-service";
 
 export function useLocalEvents(boardId: string) {
   // Simple useState for reactive updates
-  const [events, setEvents] = useState<TickTockEvent[]>(() => 
-    getLocalEvents(boardId)
+  const [events, setEvents] = useState<TickTockEvent[]>(() =>
+    getLocalEvents(boardId),
   );
 
   const loadEvents = useCallback(() => {
     const loadedEvents = getLocalEvents(boardId);
-    console.log("[useLocalEvents] Loaded events for board:", boardId, "count:", loadedEvents.length);
+    console.log(
+      "[useLocalEvents] Loaded events for board:",
+      boardId,
+      "count:",
+      loadedEvents.length,
+    );
     setEvents(loadedEvents);
   }, [boardId]);
 
   // Subscribe to localStorage changes
   useEffect(() => {
     console.log("[useLocalEvents] Setting up subscription for board:", boardId);
-    
+
     // Initial load
     loadEvents();
 
@@ -41,13 +47,20 @@ export function useLocalEvents(boardId: string) {
     const unsubscribe = subscribeToChanges((changedBoardId) => {
       // Reload if this board changed or global change
       if (!changedBoardId || changedBoardId === boardId) {
-        console.log("[useLocalEvents] Change detected for board:", changedBoardId, "reloading...");
+        console.log(
+          "[useLocalEvents] Change detected for board:",
+          changedBoardId,
+          "reloading...",
+        );
         loadEvents();
       }
     });
 
     return () => {
-      console.log("[useLocalEvents] Cleaning up subscription for board:", boardId);
+      console.log(
+        "[useLocalEvents] Cleaning up subscription for board:",
+        boardId,
+      );
       unsubscribe();
     };
   }, [boardId, loadEvents]);
@@ -93,7 +106,7 @@ export function useUpdateLocalEvent(boardId: string) {
       updates,
     }: {
       eventId: string;
-      updates: Partial<Omit<TickTockEvent, "id" | "createdAt" | "boardId">>;
+      updates: Partial<Omit<TickTockEvent, "id" | "boardId">>;
     }) => {
       updateLocalEvent(boardId, eventId, updates);
       return { eventId, updates };
@@ -104,6 +117,26 @@ export function useUpdateLocalEvent(boardId: string) {
     onError: (error) => {
       console.error("[useUpdateLocalEvent]", error);
       toast.error("Failed to update event");
+    },
+  });
+}
+
+// ============================================================
+// Restart Hook
+// ============================================================
+
+export function useRestartLocalEvent(boardId: string) {
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      return restartLocalEvent(boardId, eventId);
+    },
+    onSuccess: (restartedEvent) => {
+      broadcastLocalChange(boardId, "event_restarted", {
+        eventId: restartedEvent.id,
+      });
+    },
+    onError: (error) => {
+      console.error("[useRestartLocalEvent]", error);
     },
   });
 }

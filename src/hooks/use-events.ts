@@ -51,7 +51,12 @@ export function useCreateEvent(boardId: string) {
         description: input.description ?? "",
         targetDate: input.targetDate,
         color: input.color,
+        timerMode: input.timerMode,
         createdAt: new Date().toISOString(),
+        durationMs:
+          input.timerMode === "duration"
+            ? Math.max(0, new Date(input.targetDate).getTime() - Date.now())
+            : 0,
         isCompleted: false,
         order: previous?.length ?? 0,
         boardId,
@@ -85,41 +90,130 @@ export function useCreateEvent(boardId: string) {
 }
 
 /**
- * Update an existing event on a board and invalidate the list cache.
+ * Update an existing event on a board with optimistic cache update.
  */
 export function useUpdateEvent(boardId: string) {
   const queryClient = useQueryClient();
 
+  type UpdatePayload = {
+    id: string;
+    data: Partial<
+      Omit<
+        TickTockEvent,
+        "id" | "createdAt" | "order" | "boardId" | "targetDate" | "durationMs"
+      >
+    >;
+  };
+
   return useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: Partial<
-        Omit<TickTockEvent, "id" | "createdAt" | "order" | "boardId">
-      >;
-    }) => eventService.update(boardId, id, data),
-    onSuccess: () => {
+    mutationFn: ({ id, data }: UpdatePayload) =>
+      eventService.update(boardId, id, data),
+
+    onMutate: async ({ id, data }: UpdatePayload) => {
+      await queryClient.cancelQueries({ queryKey: eventsKey(boardId) });
+      const previous = queryClient.getQueryData<TickTockEvent[]>(
+        eventsKey(boardId),
+      );
+
+      queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
+        old ? old.map((e) => (e.id === id ? { ...e, ...data } : e)) : old,
+      );
+
+      return { previous };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(eventsKey(boardId), context.previous);
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
     },
   });
 }
 
 /**
- * Delete an event by ID on a board and invalidate the list cache.
+ * Restart a countdown — resets createdAt and targetDate using the stored durationMs.
+ */
+export function useRestartEvent(boardId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (eventId: string) => eventService.restart(boardId, eventId),
+
+    // Optimistic update - instant restart
+    onMutate: async (eventId: string) => {
+      await queryClient.cancelQueries({ queryKey: eventsKey(boardId) });
+      const previous = queryClient.getQueryData<TickTockEvent[]>(
+        eventsKey(boardId),
+      );
+
+      queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) => {
+        if (!old) return old;
+        return old.map((event) => {
+          if (event.id === eventId && event.durationMs > 0) {
+            const now = Date.now();
+            return {
+              ...event,
+              createdAt: new Date(now).toISOString(),
+              targetDate: new Date(now + event.durationMs).toISOString(),
+              isCompleted: false,
+            };
+          }
+          return event;
+        });
+      });
+
+      return { previous };
+    },
+
+    onError: (_error, _eventId, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData<TickTockEvent[]>(
+          eventsKey(boardId),
+          context.previous,
+        );
+      }
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
+    },
+  });
+}
+
+/**
+ * Delete an event by ID on a board with optimistic cache removal.
  */
 export function useDeleteEvent(boardId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => eventService.delete(boardId, id),
-    onSuccess: (_data, deletedId) => {
-      // Optimistically remove the event from cache so the card disappears immediately
-      queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
-        old ? old.filter((e) => e.id !== deletedId) : [],
+
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: eventsKey(boardId) });
+      const previous = queryClient.getQueryData<TickTockEvent[]>(
+        eventsKey(boardId),
       );
-      // Also invalidate to ensure cache stays in sync with the server
+
+      queryClient.setQueryData<TickTockEvent[]>(eventsKey(boardId), (old) =>
+        old ? old.filter((e) => e.id !== id) : [],
+      );
+
+      return { previous };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(eventsKey(boardId), context.previous);
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: eventsKey(boardId) });
     },
   });
